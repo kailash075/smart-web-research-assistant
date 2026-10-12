@@ -1,0 +1,52 @@
+:root {
+  color-scheme: light dark;
+  --color-bg: #ffffff;
+  --color-text: #1f2328;
+  --color-muted: #59636e;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1e1f22;
+    --color-text: #e6e6e6;
+    --color-muted: #a0a4ab;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.popup {
+  width: 320px;
+  padding: 16px;
+}
+
+.popup__title {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.popup__text {
+  margin: 0 0 12px;
+  color: var(--color-muted);
+}
+
+.popup__meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.popup__meta dt {
+  color: var(--color-muted);
+}
+
+.popup__meta dd {
+  margin: 0;
+}

@@ -147,3 +147,13 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# WXT
+.wxt
+.output
+stats.html
+stats-*.json
+# Machine-specific browser launch settings (https://wxt.dev/guide/essentials/config/browser-startup.html)
+web-ext.config.ts
+# Persistent dev browser profiles
+dev-profiles/
