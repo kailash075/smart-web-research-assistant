@@ -13,7 +13,9 @@ export default defineConfig({
   manifest: ({ browser }) => ({
     name: 'Recall',
     description: 'Save, organize, and search what you find on the web. Local-first and private.',
-    // Permissions are added in the phase that first needs them; see README.
+    // Each permission is explained in the README. `storage`: keep research in
+    // browser.storage.local on this device (no install warning).
+    permissions: ['storage'],
     ...(browser === 'firefox'
       ? {
           browser_specific_settings: {

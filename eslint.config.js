@@ -29,9 +29,63 @@ export default defineConfig(
       '@typescript-eslint/consistent-type-imports': 'error',
     },
   },
+  ...layerBoundaries(),
   {
     // Config files run in Node and are not part of the type-checked app.
     files: ['**/*.js'],
     extends: [tseslint.configs.disableTypeChecked],
   },
 );
+
+// Keeps dependencies pointing inwards: shared <- domain <- schemas <- application
+// <- infrastructure/composition <- ui/entrypoints. See README "Architecture".
+function layerBoundaries() {
+  const frameworks = ['wxt', 'wxt/**', 'react', 'react/**', 'react-dom', 'react-dom/**'];
+  const layer = (/** @type {string} */ name) => `**/${name}/**`;
+  const restrict = (/** @type {string[]} */ files, /** @type {string[]} */ forbidden) => ({
+    files,
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: forbidden, message: 'This import crosses an architecture boundary.' },
+          ],
+        },
+      ],
+    },
+  });
+  const outerLayers = ['ui', 'entrypoints', 'composition', 'infrastructure'].map(layer);
+
+  return [
+    restrict(
+      ['src/shared/**'],
+      [...frameworks, 'zod', ...['domain', 'schemas', 'application'].map(layer), ...outerLayers],
+    ),
+    restrict(
+      ['src/domain/**'],
+      [...frameworks, 'zod', ...['schemas', 'application'].map(layer), ...outerLayers],
+    ),
+    restrict(['src/schemas/**'], [...frameworks, layer('application'), ...outerLayers]),
+    restrict(['src/application/**'], [...frameworks, ...outerLayers]),
+    restrict(['src/ui/**', 'src/entrypoints/**'], [layer('infrastructure')]),
+    {
+      files: ['src/ui/**', 'src/entrypoints/**'],
+      rules: {
+        'no-restricted-properties': [
+          'error',
+          {
+            object: 'browser',
+            property: 'storage',
+            message: 'Use the repository from useAppServices().',
+          },
+          {
+            object: 'chrome',
+            property: 'storage',
+            message: 'Use the repository from useAppServices().',
+          },
+        ],
+      },
+    },
+  ];
+}

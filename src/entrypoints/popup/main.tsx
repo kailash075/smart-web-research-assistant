@@ -1,5 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { createAppServices } from '@/composition/app-services';
+import { AppServicesProvider } from '@/ui/app-services-context';
 import { App } from './App';
 import './style.css';
 
@@ -10,6 +12,8 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <AppServicesProvider services={createAppServices()}>
+      <App />
+    </AppServicesProvider>
   </StrictMode>,
 );

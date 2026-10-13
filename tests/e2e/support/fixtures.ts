@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { test as base, chromium, firefox, type BrowserContext, type Page } from '@playwright/test';
@@ -22,8 +22,11 @@ type BuiltManifest = {
 
 /** A page of the extension, opened in a normal tab. */
 export type ExtensionPage = {
-  /** Runs a synchronous, JSON-serialisable function inside the page. */
-  evaluate: <T>(fn: () => T) => Promise<T>;
+  /**
+   * Runs `fn` inside the page and returns its JSON-serialisable result. `fn` is sent
+   * as source text, so it cannot use variables from the test file.
+   */
+  evaluate: <T>(fn: () => T | Promise<T>) => Promise<T>;
   /** Uncaught errors and console.error calls from the extension so far. */
   errors: () => string[];
 };
@@ -33,8 +36,16 @@ export type InstalledExtension = {
   openPage: (path: string) => Promise<ExtensionPage>;
 };
 
+export type LaunchedExtension = { extension: InstalledExtension; close: () => Promise<void> };
+
 type Fixtures = {
   manifest: BuiltManifest;
+  /**
+   * Starts the browser with the extension installed. Every call within one test uses
+   * the same browser profile, so `close()` and launching again simulates a restart.
+   */
+  launchExtension: () => Promise<LaunchedExtension>;
+  /** The extension in a fresh browser profile. */
   extension: InstalledExtension;
 };
 
@@ -48,17 +59,37 @@ export const test = base.extend<Fixtures>({
     await use(readBuiltManifest(outputDirFor(browserName)));
   },
 
-  extension: async ({ browserName, channel, headless, manifest }, use) => {
+  launchExtension: async ({ browserName, channel, headless, manifest }, use) => {
+    const profileDir = createProfileDir(browserName);
     const extensionDir = outputDirFor(browserName);
-    const { extension, close } =
-      browserName === 'firefox'
-        ? await launchFirefox({ extensionDir, manifest, channel, headless })
-        : await launchChrome({ extensionDir, channel, headless });
+    const open = new Set<LaunchedExtension>();
     try {
-      await use(extension);
+      await use(async () => {
+        const options = { extensionDir, profileDir, channel, headless };
+        const launched =
+          browserName === 'firefox'
+            ? await launchFirefox({ ...options, manifest })
+            : await launchChrome(options);
+        const tracked: LaunchedExtension = {
+          extension: launched.extension,
+          close: async () => {
+            open.delete(tracked);
+            await launched.close();
+          },
+        };
+        open.add(tracked);
+        return tracked;
+      });
     } finally {
-      await close();
+      // Close browsers before deleting the profile they are using.
+      for (const launched of [...open]) await launched.close();
+      await removeProfileDir(profileDir);
     }
+  },
+
+  extension: async ({ launchExtension }, use) => {
+    const { extension } = await launchExtension();
+    await use(extension);
   },
 });
 
@@ -66,17 +97,21 @@ export { expect } from '@playwright/test';
 
 type LaunchOptions = {
   extensionDir: string;
+  profileDir: string;
   channel: string | undefined;
   headless: boolean;
 };
 
-type Launched = { extension: InstalledExtension; close: () => Promise<void> };
-
 // Branded Chrome 137+ ignores --load-extension, so we install through the DevTools
 // protocol instead (the same method web-ext uses). Playwright disables extensions by
 // default, so that flag is removed.
-async function launchChrome({ extensionDir, channel, headless }: LaunchOptions): Promise<Launched> {
-  const context = await chromium.launchPersistentContext('', {
+async function launchChrome({
+  extensionDir,
+  profileDir,
+  channel,
+  headless,
+}: LaunchOptions): Promise<LaunchedExtension> {
+  const context = await chromium.launchPersistentContext(profileDir, {
     ...(channel ? { channel } : {}),
     headless,
     args: ['--enable-unsafe-extension-debugging'],
@@ -102,7 +137,7 @@ async function launchChrome({ extensionDir, channel, headless }: LaunchOptions):
       collectErrors(page, errors);
       await page.goto(`chrome-extension://${id}/${path}`);
       return {
-        evaluate: (fn) => page.evaluate(fn),
+        evaluate: <T>(fn: () => T | Promise<T>) => page.evaluate<T>(fn),
         errors: () => [...errors],
       };
     },
@@ -114,21 +149,20 @@ async function launchChrome({ extensionDir, channel, headless }: LaunchOptions):
 // Installing the add-on and reading its pages go through Firefox's debugger protocol.
 async function launchFirefox({
   extensionDir,
+  profileDir,
   manifest,
   channel,
   headless,
-}: LaunchOptions & { manifest: BuiltManifest }): Promise<Launched> {
+}: LaunchOptions & { manifest: BuiltManifest }): Promise<LaunchedExtension> {
   const addonId = manifest.geckoId;
   if (!addonId) throw new Error('Firefox manifest is missing browser_specific_settings.gecko.id');
 
-  const profileDir = createFirefoxProfileDir();
   const debuggerPort = await findFreePort();
   let context: BrowserContext | undefined;
   let client: FirefoxDebugger | undefined;
   const close = async () => {
     client?.close();
     await context?.close();
-    rmSync(profileDir, { recursive: true, force: true });
   };
 
   try {
@@ -140,6 +174,11 @@ async function launchFirefox({
         'devtools.debugger.remote-enabled': true,
         'devtools.debugger.prompt-connection': false,
         'devtools.chrome.enabled': true,
+        // Tests install the add-on temporarily, and uninstalling an add-on deletes its
+        // storage. Firefox 156 kept the data across a restart even without these prefs,
+        // but they guarantee the temporary install behaves like a normal signed one.
+        'extensions.webextensions.keepStorageOnUninstall': true,
+        'extensions.webextensions.keepUuidOnUninstall': true,
       },
     });
     const debuggerClient = await connectFirefoxDebugger(debuggerPort);
@@ -179,16 +218,39 @@ async function openFirefoxExtensionPage(
     return state === 'complete';
   });
   return {
-    evaluate: async <T>(fn: () => T) => {
-      const json = await evaluateToString(
-        client,
-        consoleActor,
-        `JSON.stringify((${fn.toString()})()) ?? 'null'`,
-      );
-      return JSON.parse(json) as T;
-    },
+    evaluate: (fn) => evaluateInFirefoxPage(client, consoleActor, fn.toString()),
     errors: () => [...session.errors],
   };
+}
+
+// The debugger returns immediately for async code, so the result is parked in a
+// window property and polled.
+async function evaluateInFirefoxPage<T>(
+  client: FirefoxDebugger,
+  consoleActor: string,
+  source: string,
+): Promise<T> {
+  const slot = JSON.stringify(`__recallE2e_${randomUUID()}`);
+  await evaluateToString(
+    client,
+    consoleActor,
+    `window[${slot}] = '';
+    Promise.resolve()
+      .then(() => (${source})())
+      .then(
+        (value) => { window[${slot}] = JSON.stringify({ ok: true, value: value ?? null }); },
+        (error) => { window[${slot}] = JSON.stringify({ ok: false, error: String(error) }); },
+      );
+    'started'`,
+  );
+  let outcome = '';
+  await waitUntil(async () => {
+    outcome = await evaluateToString(client, consoleActor, `window[${slot}]`);
+    return outcome !== '';
+  });
+  const parsed = JSON.parse(outcome) as { ok: true; value: T } | { ok: false; error: string };
+  if (!parsed.ok) throw new Error(`Page code failed: ${parsed.error}`);
+  return parsed.value;
 }
 
 function collectErrors(page: Page, errors: string[]): void {
@@ -199,13 +261,22 @@ function collectErrors(page: Page, errors: string[]): void {
 }
 
 // Snap Firefox cannot read /tmp, so its throwaway profiles live in the snap's own folder.
-function createFirefoxProfileDir(): string {
-  const root = existsSync('/snap/bin/firefox')
-    ? join(homedir(), 'snap/firefox/common/recall-e2e-profiles')
-    : join(tmpdir(), 'recall-e2e-profiles');
-  const dir = join(root, randomUUID());
-  mkdirSync(dir, { recursive: true });
-  return dir;
+function createProfileDir(browserName: string): string {
+  if (browserName === 'firefox' && existsSync('/snap/bin/firefox')) {
+    const dir = join(homedir(), 'snap/firefox/common/recall-e2e-profiles', randomUUID());
+    mkdirSync(dir, { recursive: true });
+    return dir;
+  }
+  return mkdtempSync(join(tmpdir(), `recall-e2e-${browserName}-`));
+}
+
+// Browser helper processes can still write to the profile for a moment after the
+// browser closes, so delete until the folder stays gone.
+async function removeProfileDir(dir: string): Promise<void> {
+  for (let attempt = 0; attempt < 10 && existsSync(dir); attempt++) {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
 }
 
 async function waitUntil(condition: () => Promise<boolean>, timeoutMs = 10_000): Promise<void> {
