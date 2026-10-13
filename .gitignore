@@ -157,3 +157,7 @@ stats-*.json
 web-ext.config.ts
 # Persistent dev browser profiles
 dev-profiles/
+# Playwright
+test-results/
+playwright-report/
+blob-report/

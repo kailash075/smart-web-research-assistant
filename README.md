@@ -34,7 +34,15 @@ pnpm install
 | `pnpm lint:firefox`  | Mozilla's add-on linter on the Firefox production build        |
 | `pnpm format`        | Format with Prettier                                           |
 | `pnpm test`          | Unit tests (Vitest)                                            |
-| `pnpm check`         | Everything above that verifies, in one go                      |
+| `pnpm test:e2e`      | Builds both targets, then browser tests in Chrome and Firefox  |
+| `pnpm check`         | Typecheck, lint, format, unit tests, builds, Firefox lint      |
+
+## End-to-end tests
+
+`pnpm test:e2e` builds both targets and runs [Playwright](https://playwright.dev) tests against the browsers installed on this machine, headless. Add `--headed` to watch them, or `--project chrome` / `--project firefox` to run one browser.
+
+- **Chrome** uses your installed Google Chrome. Chrome 137+ ignores `--load-extension`, so the tests install the build through the DevTools protocol (`Extensions.loadUnpacked`), the same way web-ext does.
+- **Firefox** uses your installed Firefox through Playwright's experimental `moz-firefox` channel (WebDriver BiDi). WebDriver cannot install extensions or read `moz-extension://` pages, so the tests use Firefox's remote debugging protocol for those steps (`tests/e2e/support/firefox-remote.ts`). Firefox tests therefore check page content by running code inside the page rather than by clicking and typing. On Ubuntu's snap Firefox, test profiles are created in `~/snap/firefox/common/recall-e2e-profiles/` and deleted afterwards.
 
 ## Loading the extension manually
 
