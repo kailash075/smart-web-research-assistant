@@ -1,0 +1,160 @@
+/* Colours, type, and form controls shared by the popup and the library page. */
+
+:root {
+  color-scheme: light dark;
+  --color-bg: #ffffff;
+  --color-surface: #f6f8fa;
+  --color-border: #d1d9e0;
+  --color-text: #1f2328;
+  --color-muted: #59636e;
+  --color-accent: #4f46e5;
+  --color-accent-hover: #4338ca;
+  --color-on-accent: #ffffff;
+  --color-focus: #6366f1;
+  --color-success-bg: #dafbe1;
+  --color-success-text: #116329;
+  --color-info-bg: #ddf4ff;
+  --color-info-text: #0a3069;
+  --color-error-bg: #ffebe9;
+  --color-error-text: #82071e;
+  --color-danger: #cf222e;
+  --radius: 6px;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1e1f22;
+    --color-surface: #2b2d31;
+    --color-border: #43464d;
+    --color-text: #e6e6e6;
+    --color-muted: #a0a4ab;
+    --color-accent: #818cf8;
+    --color-accent-hover: #a5b4fc;
+    --color-on-accent: #11132b;
+    --color-focus: #a5b4fc;
+    --color-success-bg: #12361f;
+    --color-success-text: #8ce0a4;
+    --color-info-bg: #0c2d4a;
+    --color-info-text: #a8d7ff;
+    --color-error-bg: #4c1a1d;
+    --color-error-text: #ffb3b8;
+    --color-danger: #ff7b72;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  /* Chrome gives extension pages a default body font of 75%; use the theme's instead. */
+  font: inherit;
+}
+
+a {
+  color: var(--color-accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.button {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--color-muted);
+}
+
+.button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.button--primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.button--primary:hover:not(:disabled) {
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
+}
+
+.button--danger {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: var(--color-bg);
+}
+
+.button--quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-accent);
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+}
+
+.field__label {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.field__input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+}
+
+textarea.field__input {
+  resize: vertical;
+}
+
+.message {
+  margin: 0;
+  padding: 8px;
+  border-radius: var(--radius);
+}
+
+.message--success {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.message--info {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
+.message--error {
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

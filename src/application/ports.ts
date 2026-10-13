@@ -24,3 +24,27 @@ export type ResearchRepository = {
   /** Calls `listener` after items change in any extension page. Returns an unsubscribe function. */
   subscribe: (listener: () => void) => () => void;
 };
+
+/** Current time as an ISO 8601 UTC string. */
+export type Clock = { now: () => string };
+
+export type IdGenerator = { newId: () => ResearchItemId };
+
+/**
+ * A browser tab as the extension sees it. `url` and `title` are undefined when the
+ * browser does not let the extension see the page (for example its settings pages).
+ */
+export type BrowserTab = { id: number; url: string | undefined; title: string | undefined };
+
+/** `sensitive`: the selection is in a password field and must not be saved at all. */
+export type PageAccessErrorKind = 'unavailable' | 'no_tab' | 'blocked' | 'sensitive';
+
+export type PageAccessError = { kind: PageAccessErrorKind; message: string };
+
+/** Reads from the user's tabs. Only works right after a user action (`activeTab`). */
+export type TabsPort = {
+  /** The focused tab of the current window. */
+  getActiveTab: () => Promise<Result<BrowserTab, PageAccessError>>;
+  /** Text the user selected in a frame of the tab (the top frame by default). */
+  readSelection: (tabId: number, frameId?: number) => Promise<Result<string, PageAccessError>>;
+};

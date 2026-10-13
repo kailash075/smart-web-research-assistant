@@ -21,8 +21,8 @@ test('a fresh install shows an empty library', async ({ extension }) => {
   expect(popup.errors()).toEqual([]);
 });
 
-// Automates the Phase 2 manual test in the README. Phase 3 adds real saving; until
-// then the test writes records in the stored format, like the manual console snippet.
+// Writes records in the stored format directly, so damaged records can be tested too.
+// Saving through the popup is covered in save.spec.ts.
 test('counts saved items, reports damaged ones, and keeps both after a restart', async ({
   launchExtension,
 }) => {

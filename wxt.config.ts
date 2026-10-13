@@ -13,9 +13,28 @@ export default defineConfig({
   manifest: ({ browser }) => ({
     name: 'Recall',
     description: 'Save, organize, and search what you find on the web. Local-first and private.',
-    // Each permission is explained in the README. `storage`: keep research in
-    // browser.storage.local on this device (no install warning).
-    permissions: ['storage'],
+    // Each permission is explained in the README. None shows an install warning.
+    // storage: keep research in browser.storage.local on this device.
+    // activeTab: read the URL and title of the tab the user acts on, only at that moment.
+    // scripting: read the selected text in that tab (allowed by activeTab).
+    // contextMenus: the "Save page/selection to Recall" right-click items.
+    permissions: ['storage', 'activeTab', 'scripting', 'contextMenus'],
+    // Users can change these in chrome://extensions/shortcuts or Firefox's
+    // "Manage Extension Shortcuts". Using one also grants activeTab.
+    commands: {
+      _execute_action: {
+        suggested_key: { default: 'Alt+Shift+R' },
+        description: 'Open Recall',
+      },
+      'save-page': {
+        suggested_key: { default: 'Alt+Shift+S' },
+        description: 'Save the current page',
+      },
+      'save-selection': {
+        suggested_key: { default: 'Alt+Shift+H' },
+        description: 'Save the selected text',
+      },
+    },
     ...(browser === 'firefox'
       ? {
           browser_specific_settings: {

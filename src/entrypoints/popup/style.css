@@ -1,43 +1,47 @@
-:root {
-  color-scheme: light dark;
-  --color-bg: #ffffff;
-  --color-text: #1f2328;
-  --color-muted: #59636e;
-  --color-error-bg: #ffebe9;
-  --color-error-text: #82071e;
-  font-family: system-ui, sans-serif;
-  font-size: 14px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #1e1f22;
-    --color-text: #e6e6e6;
-    --color-muted: #a0a4ab;
-    --color-error-bg: #4c1a1d;
-    --color-error-text: #ffb3b8;
-  }
-}
-
-body {
-  margin: 0;
-  background: var(--color-bg);
-  color: var(--color-text);
-}
-
 .popup {
-  width: 320px;
+  display: grid;
+  gap: 12px;
+  width: 340px;
   padding: 16px;
 }
 
+.popup__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .popup__title {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 18px;
 }
 
-.popup__text {
-  margin: 0 0 12px;
+.popup__muted {
+  margin: 0;
   color: var(--color-muted);
+}
+
+.popup__page {
+  display: grid;
+  gap: 2px;
+}
+
+.popup__page-title {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.popup__form {
+  display: grid;
+  gap: 8px;
+}
+
+.popup__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .popup__meta {
@@ -45,20 +49,12 @@ body {
   grid-template-columns: auto 1fr;
   gap: 4px 12px;
   margin: 0;
-}
-
-.popup__meta dt {
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
   color: var(--color-muted);
+  font-size: 12px;
 }
 
 .popup__meta dd {
   margin: 0;
-}
-
-.popup__error {
-  margin: 12px 0 0;
-  padding: 8px;
-  border-radius: 4px;
-  background: var(--color-error-bg);
-  color: var(--color-error-text);
 }

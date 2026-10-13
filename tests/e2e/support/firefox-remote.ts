@@ -110,7 +110,22 @@ export async function debugExtension(
   };
 }
 
-/** Evaluates `expression` in an extension page and returns the resulting string. */
+/**
+ * Console actor of Firefox's parent process, which runs the browser window itself
+ * (toolbar, menus, keyboard shortcuts). Needs the `devtools.chrome.enabled` pref.
+ */
+export async function getParentProcessConsole(client: FirefoxDebugger): Promise<string> {
+  const reply = await client.request({ to: 'root', type: 'getProcess', id: 0 });
+  const descriptor = reply['processDescriptor'];
+  if (!isPacket(descriptor))
+    throw new Error(`Unexpected getProcess reply: ${JSON.stringify(reply)}`);
+  const target = await client.request({ to: stringField(descriptor, 'actor'), type: 'getTarget' });
+  const form = target['process'];
+  if (!isPacket(form)) throw new Error(`Unexpected getTarget reply: ${JSON.stringify(target)}`);
+  return stringField(form, 'consoleActor');
+}
+
+/** Evaluates `expression` in a page or process and returns the resulting string. */
 export async function evaluateToString(
   client: FirefoxDebugger,
   consoleActor: string,

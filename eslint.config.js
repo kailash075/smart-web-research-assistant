@@ -31,6 +31,12 @@ export default defineConfig(
   },
   ...layerBoundaries(),
   {
+    // Playwright reads fixture dependencies from the first parameter's destructuring
+    // pattern, so a fixture without dependencies must be written as `({}, use) =>`.
+    files: ['tests/e2e/**'],
+    rules: { 'no-empty-pattern': ['error', { allowObjectPatternsAsParameters: true }] },
+  },
+  {
     // Config files run in Node and are not part of the type-checked app.
     files: ['**/*.js'],
     extends: [tseslint.configs.disableTypeChecked],

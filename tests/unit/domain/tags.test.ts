@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeTag, normalizeTags } from '@/domain/tags';
+import { formatTagInput, normalizeTag, normalizeTags, parseTagInput } from '@/domain/tags';
 
 describe('normalizeTag', () => {
   it('trims, lowercases, collapses spaces and drops leading #', () => {
@@ -34,5 +34,23 @@ describe('normalizeTags', () => {
   it('allows exactly 20 tags', () => {
     const result = normalizeTags(Array.from({ length: 20 }, (_, index) => `tag ${String(index)}`));
     expect(result.ok).toBe(true);
+  });
+});
+
+describe('parseTagInput and formatTagInput', () => {
+  it('splits a comma-separated field and leaves cleanup to normalizeTags', () => {
+    expect(parseTagInput('Research, ai,, #books ')).toEqual(['Research', ' ai', '', ' #books ']);
+    expect(normalizeTags(parseTagInput('Research, ai,, #books '))).toEqual({
+      ok: true,
+      value: ['research', 'ai', 'books'],
+    });
+  });
+
+  it('round-trips stored tags', () => {
+    expect(formatTagInput(['research', 'machine learning'])).toBe('research, machine learning');
+    expect(normalizeTags(parseTagInput(formatTagInput(['a', 'b c'])))).toEqual({
+      ok: true,
+      value: ['a', 'b c'],
+    });
   });
 });
