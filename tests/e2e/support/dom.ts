@@ -1,5 +1,4 @@
-import type { Page } from '@playwright/test';
-import type { ExtensionPage } from './types';
+import type { ExtensionPage, WebPage } from './types';
 
 // Helpers that interact with extension pages by running code inside them. Firefox
 // tests cannot click or type in extension pages through WebDriver, so both browsers
@@ -140,7 +139,7 @@ export function readLibrary(page: ExtensionPage): Promise<LibraryCard[]> {
 }
 
 /** Selects the text of an element in a web page, like dragging over it with the mouse. */
-export function selectText(page: Page, selector: string): Promise<void> {
+export function selectText(page: WebPage, selector: string): Promise<void> {
   return page.evaluate((selector) => {
     const element = document.querySelector(selector);
     if (!element) throw new Error(`Nothing matches ${selector}`);
@@ -154,7 +153,7 @@ export function selectText(page: Page, selector: string): Promise<void> {
 
 /** Selects part of a text field's value, like dragging inside the field. */
 export function selectInField(
-  page: Page,
+  page: WebPage,
   selector: string,
   start: number,
   end: number,
@@ -172,7 +171,7 @@ export function selectInField(
   );
 }
 
-export function clearSelection(page: Page): Promise<void> {
+export function clearSelection(page: WebPage): Promise<void> {
   return page.evaluate(() => {
     window.getSelection()?.removeAllRanges();
   });

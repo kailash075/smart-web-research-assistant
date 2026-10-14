@@ -128,8 +128,8 @@ test.describe('saving from the popup', () => {
 });
 
 // Chrome's DevTools protocol can click the toolbar button but cannot open native
-// context menus or press extension shortcuts. Those paths are checked manually in
-// Chrome (README "Manual checks").
+// context menus or press extension shortcuts. desktop.spec.ts covers those paths in
+// both browsers with real input on a virtual display.
 test.describe('saving with the context menu and shortcuts', () => {
   test.skip(({ browserName }) => browserName !== 'firefox', 'Needs Firefox debugger controls');
 
@@ -142,14 +142,14 @@ test.describe('saving with the context menu and shortcuts', () => {
     expect(await firefox.contextMenuItems(article, '#second')).toEqual(['Save page to Recall']);
     await firefox.chooseContextMenuItem(article, '#second', 'Save page to Recall');
     await expect
-      .poll(() => firefox.toolbarButton())
+      .poll(() => extension.toolbarButton())
       .toEqual({ badge: '✓', title: 'Recall: Page saved.' });
 
     await selectText(article, '#quote');
     expect(await firefox.contextMenuItems(article, '#quote')).toEqual(['Save selection to Recall']);
     await firefox.chooseContextMenuItem(article, '#quote', 'Save selection to Recall');
     await expect
-      .poll(() => firefox.toolbarButton())
+      .poll(() => extension.toolbarButton())
       .toEqual({ badge: '✓', title: 'Recall: Highlight saved.' });
 
     const library = await extension.openPage('library.html');
@@ -159,13 +159,13 @@ test.describe('saving with the context menu and shortcuts', () => {
     expect(library.errors()).toEqual([]);
   });
 
-  test('Alt+Shift+R opens the popup for the current page', async ({ extension, site }) => {
+  test('Alt+Shift+M opens the popup for the current page', async ({ extension, site }) => {
     const firefox = extension.firefox;
     if (!firefox) throw new Error('Firefox controls are missing');
     const article = await extension.openWebPage(site.url('/article.html'));
 
-    const popupOpened = firefox.nextPopup();
-    await firefox.pressShortcut(article, 'Alt+Shift+R');
+    const popupOpened = extension.nextPopup();
+    await firefox.pressShortcut(article, 'Alt+Shift+M');
     const popup = await popupOpened;
 
     await expect.poll(() => textOf(popup, '[data-testid="page-title"]')).toBe('Deep work notes');
@@ -177,26 +177,26 @@ test.describe('saving with the context menu and shortcuts', () => {
     if (!firefox) throw new Error('Firefox controls are missing');
     const article = await extension.openWebPage(site.url('/article.html'));
 
-    await firefox.pressShortcut(article, 'Alt+Shift+S');
+    await firefox.pressShortcut(article, 'Alt+Shift+D');
     await expect
-      .poll(() => firefox.toolbarButton())
+      .poll(() => extension.toolbarButton())
       .toEqual({ badge: '✓', title: 'Recall: Page saved.' });
 
-    await firefox.pressShortcut(article, 'Alt+Shift+S');
+    await firefox.pressShortcut(article, 'Alt+Shift+D');
     await expect
-      .poll(() => firefox.toolbarButton())
+      .poll(() => extension.toolbarButton())
       .toEqual({ badge: '✓', title: 'Recall: Page was already saved.' });
 
     await selectText(article, '#quote');
-    await firefox.pressShortcut(article, 'Alt+Shift+H');
+    await firefox.pressShortcut(article, 'Alt+Shift+L');
     await expect
-      .poll(() => firefox.toolbarButton())
+      .poll(() => extension.toolbarButton())
       .toEqual({ badge: '✓', title: 'Recall: Highlight saved.' });
 
     await clearSelection(article);
-    await firefox.pressShortcut(article, 'Alt+Shift+H');
+    await firefox.pressShortcut(article, 'Alt+Shift+L');
     await expect
-      .poll(() => firefox.toolbarButton())
+      .poll(() => extension.toolbarButton())
       .toEqual({ badge: '!', title: 'Recall: Select some text on the page first.' });
 
     const library = await extension.openPage('library.html');

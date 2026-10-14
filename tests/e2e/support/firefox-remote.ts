@@ -3,7 +3,8 @@ import net from 'node:net';
 // Minimal client for Firefox's Remote Debugging Protocol, the protocol web-ext and
 // about:debugging use. Playwright can launch Firefox but cannot install extensions or
 // read extension pages (WebDriver BiDi refuses moz-extension:// contexts), so the
-// fixtures use this protocol for those two jobs.
+// fixtures use this protocol for those two jobs, and for web pages too in a Firefox
+// that Playwright cannot drive (Firefox 140).
 // Protocol docs: https://firefox-source-docs.mozilla.org/devtools/backend/protocol.html
 
 type Packet = Record<string, unknown>;
@@ -16,8 +17,6 @@ export type FirefoxDebugger = {
 };
 
 export type ExtensionDebugSession = {
-  /** Console actor of the extension's background page. */
-  backgroundConsole: string;
   /** Console actor of the next extension page whose address (without query) ends with `suffix`. */
   waitForPage: (suffix: string) => Promise<string>;
   /** Errors logged or thrown by any of the extension's pages so far. */
@@ -71,11 +70,9 @@ export async function debugExtension(
   const watcherActor = stringField(watcher, 'actor');
 
   const errors: string[] = [];
-  const pages: Packet[] = [];
   const pageListeners: ((page: Packet) => void)[] = [];
   client.onEvent((packet) => {
     if (packet['type'] === 'target-available-form' && isPacket(packet['target'])) {
-      pages.push(packet['target']);
       for (const listener of pageListeners) listener(packet['target']);
     }
     if (packet['type'] === 'resources-available-array') errors.push(...readErrors(packet));
@@ -88,12 +85,7 @@ export async function debugExtension(
     resourceTypes: ['console-message', 'error-message'],
   });
 
-  const findPage = (suffix: string) => pages.find((page) => String(page['url']).endsWith(suffix));
-  const background = findPage('_generated_background_page.html');
-  if (!background) throw new Error('Extension background page not found');
-
   return {
-    backgroundConsole: stringField(background, 'consoleActor'),
     errors,
     waitForPage: (suffix) =>
       new Promise((resolve, reject) => {
@@ -122,6 +114,19 @@ export async function getParentProcessConsole(client: FirefoxDebugger): Promise<
     throw new Error(`Unexpected getProcess reply: ${JSON.stringify(reply)}`);
   const target = await client.request({ to: stringField(descriptor, 'actor'), type: 'getTarget' });
   const form = target['process'];
+  if (!isPacket(form)) throw new Error(`Unexpected getTarget reply: ${JSON.stringify(target)}`);
+  return stringField(form, 'consoleActor');
+}
+
+/** Console actor of the page in the tab whose browser has this `browserId`. */
+export async function getTabConsole(client: FirefoxDebugger, browserId: number): Promise<string> {
+  const { tabs } = await client.request({ to: 'root', type: 'listTabs' });
+  const tab = Array.isArray(tabs)
+    ? tabs.find((item): item is Packet => isPacket(item) && item['browserId'] === browserId)
+    : undefined;
+  if (!tab) throw new Error(`No tab with browserId ${String(browserId)}`);
+  const target = await client.request({ to: stringField(tab, 'actor'), type: 'getTarget' });
+  const form = target['frame'];
   if (!isPacket(form)) throw new Error(`Unexpected getTarget reply: ${JSON.stringify(target)}`);
   return stringField(form, 'consoleActor');
 }

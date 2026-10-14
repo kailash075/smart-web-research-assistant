@@ -13,13 +13,15 @@ Recall is a cross-browser (Chrome and Firefox, Manifest V3) extension built with
 - **Right-click:** choose **Save page to Recall**, or **Save selection to Recall** when text is selected. These items only appear on web pages.
 - **Keyboard shortcuts** (defaults; change them in `chrome://extensions/shortcuts` or Firefox's **Add-ons → ⚙ → Manage Extension Shortcuts**):
 
-  | Shortcut      | Action                 |
-  | ------------- | ---------------------- |
-  | `Alt+Shift+R` | Open the Recall popup  |
-  | `Alt+Shift+S` | Save the current page  |
-  | `Alt+Shift+H` | Save the selected text |
+  | Shortcut      | Action                                 |
+  | ------------- | -------------------------------------- |
+  | `Alt+Shift+M` | Open the Recall popup (**m**enu)       |
+  | `Alt+Shift+D` | Save the current page (**d**ocument)   |
+  | `Alt+Shift+L` | Save the selected text (high**l**ight) |
 
   Right-click and shortcut saves show their result on the toolbar button for 4 seconds: a green ✓ for saved, a grey ✓ for already saved, a red ! for a problem. Hover the button to read the message.
+
+  The letters avoid keys that would never reach Recall. Chrome leaves a shortcut unassigned when it uses the keys itself (Chrome 153 on Linux keeps `Alt+Shift` with A, C, I, N, P, R, W, X, and Z). Firefox gives `Alt+Shift` and a letter to the page's access keys first, then to its menu bar (in English, F, E, V, S for History, B, T, and H for Help), and only then to extensions. Wikipedia's access keys use C, E, F, G, H, J, K, O, P, Q, R, T, U, X, and Z. If a page has access keys for M, D, or L, or Firefox's menus use one of those letters in your language, Firefox opens the menu or follows the page's link instead: use the toolbar button or the right-click menu there, or choose other keys.
 
 - **Library:** **Open library** in the popup opens a page listing everything you saved. Search titles, addresses, highlights, notes, and tags (every word must match; case and accents are ignored). Filter by tag or website, sort newest or oldest first, click a tag to filter by it, edit notes and tags, and delete items (Recall asks before deleting).
 - **Show in library:** after saving, or on a page you saved before, **Show in library** in the popup opens the library scrolled to that item.
@@ -64,6 +66,37 @@ Recall asks for as little as possible. Each permission is listed here with the r
 
 Keyboard shortcuts (`commands` in the manifest) and the toolbar badge need no permission. More permissions are added only when a feature needs them, and documented here.
 
+## Browser support
+
+| Browser           | Minimum version | Tested on Linux x86-64                                         |
+| ----------------- | --------------- | -------------------------------------------------------------- |
+| Chrome (desktop)  | 120             | Google Chrome 153.0.8010.36, Chrome for Testing 120.0.6099.109 |
+| Firefox (desktop) | 140 (ESR)       | Firefox 156.0.1, Firefox ESR 140.0esr                          |
+
+- **Minimums.** The manifest sets them (`minimum_chrome_version`, and `strict_min_version` for Firefox), so older browsers refuse to install Recall. Firefox 140 is an extended support release and the first that reads `data_collection_permissions`, which Firefox Add-ons requires. TypeScript only allows JavaScript built-ins up to ES2023 (`lib` in `tsconfig.json`), so code that needs a newer browser fails to type-check.
+- **Desktop only.** Firefox for Android has neither right-click menus nor extension shortcuts, and Recall is untested there. The manifest leaves out `gecko_android`, so Firefox Add-ons does not offer Recall for Android. Because of that, `pnpm lint:firefox` warns `KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION`; the warning is expected.
+- **Not tested:** Windows, macOS, other Chromium browsers (Edge, Brave, and so on), and Safari.
+
+Where the two browsers differ:
+
+- **Background.** Chrome runs Recall's background as a service worker, Firefox as an event page. Both stop it when idle and start it again for the next menu click or shortcut. Recall keeps nothing in memory between events, and the tests check that a stopped background wakes up (in Firefox).
+- **Keyboard shortcuts.** Chrome does not assign a suggested shortcut that it uses itself, and the keys it keeps differ by version (Chrome 153 keeps `Alt+Shift+R`, Chrome 120 does not). Firefox assigns any shortcut, but pages' access keys and its menu bar take `Alt+Shift` and a letter first (see [Using Recall](#using-recall)).
+- **PDF viewer.** In Chrome 120, a right-click in the PDF viewer reports the viewer rather than the tab (no tab ID, and the viewer's own address). Recall then saves the PDF's address and shows the result on the active tab. Chrome 153 reports the tab.
+- **Reader View** exists only in Firefox, and Recall saves the article's real address there.
+- **Storage.** Chrome limits local extension storage to about 10 MB; Firefox has no fixed limit.
+
+### Testing the oldest supported versions
+
+```bash
+pnpm test:tools        # downloads Chrome for Testing 120, Firefox ESR 140, and Xvfb (Linux x86-64)
+pnpm test:e2e:oldest   # builds, then runs the end-to-end tests in those two browsers
+```
+
+`scripts/get-test-tools.sh` saves both browsers in `~/.cache/recall-e2e-browsers`, checks them against the checksums Google and Mozilla publish, and turns off updates in that Firefox. It also unpacks Xvfb there for the [real input tests](#real-keys-and-menus). Nothing is installed system-wide. The `chrome-120` and `firefox-140` test projects exist only when those files are there.
+
+- **Firefox 140** runs every test. Playwright cannot drive Firefox 140 (its WebDriver BiDi client sends `network.addDataCollector`, which Firefox 140 does not have), so the tests start that Firefox themselves and open and script web pages through Firefox's remote debugging protocol instead.
+- **Chrome 120** runs every test except those that click the toolbar button through the DevTools protocol: Chrome 120's protocol has no `Extensions.triggerAction`, so they are skipped there and run on current Chrome. The real input tests open its popup with `Alt+Shift+M` instead.
+
 ## Requirements
 
 - Node.js 22.13 or newer
@@ -79,21 +112,31 @@ pnpm install
 
 ## Commands
 
-| Command              | What it does                                                   |
-| -------------------- | -------------------------------------------------------------- |
-| `pnpm dev`           | Dev mode for Chrome with hot reload (`.output/chrome-mv3-dev`) |
-| `pnpm dev:firefox`   | Dev mode for Firefox (`.output/firefox-mv3-dev`)               |
-| `pnpm build`         | Production build for Chrome (`.output/chrome-mv3`)             |
-| `pnpm build:firefox` | Production build for Firefox (`.output/firefox-mv3`)           |
-| `pnpm zip`           | Store-ready zip for Chrome                                     |
-| `pnpm zip:firefox`   | Store-ready zip (plus source zip) for Firefox                  |
-| `pnpm typecheck`     | TypeScript check                                               |
-| `pnpm lint`          | ESLint                                                         |
-| `pnpm lint:firefox`  | Mozilla's add-on linter on the Firefox production build        |
-| `pnpm format`        | Format with Prettier                                           |
-| `pnpm test`          | Unit tests (Vitest)                                            |
-| `pnpm test:e2e`      | Builds both targets, then browser tests in Chrome and Firefox  |
-| `pnpm check`         | Typecheck, lint, format, unit tests, builds, Firefox lint      |
+| Command                | What it does                                                                |
+| ---------------------- | --------------------------------------------------------------------------- |
+| `pnpm dev`             | Dev mode for Chrome with hot reload (`.output/chrome-mv3-dev`)              |
+| `pnpm dev:firefox`     | Dev mode for Firefox (`.output/firefox-mv3-dev`)                            |
+| `pnpm build`           | Production build for Chrome (`.output/chrome-mv3`)                          |
+| `pnpm build:firefox`   | Production build for Firefox (`.output/firefox-mv3`)                        |
+| `pnpm zip`             | Store-ready zip for Chrome                                                  |
+| `pnpm zip:firefox`     | Store-ready zip for Firefox, plus the sources zip reviewers rebuild it from |
+| `pnpm typecheck`       | TypeScript check                                                            |
+| `pnpm lint`            | ESLint                                                                      |
+| `pnpm lint:firefox`    | Mozilla's add-on linter on the Firefox production build                     |
+| `pnpm format`          | Format with Prettier                                                        |
+| `pnpm test`            | Unit tests (Vitest)                                                         |
+| `pnpm test:e2e`        | Builds both targets, then browser tests in Chrome and Firefox               |
+| `pnpm test:tools`      | Downloads the oldest supported Chrome and Firefox, and Xvfb, for testing    |
+| `pnpm test:e2e:oldest` | Builds both targets, then browser tests in Chrome 120 and Firefox 140       |
+| `pnpm check`           | Typecheck, lint, format, unit tests, builds, Firefox lint                   |
+
+The sources zip holds only what the build needs (`zip.includeSources` in `wxt.config.ts`), so local files such as test results never end up in it. Rebuilding from it gives a Firefox build identical to `.output/firefox-mv3`.
+
+`pnpm lint:firefox` reports no errors and 5 warnings, all expected:
+
+- `KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION`: Recall is desktop only (see [Browser support](#browser-support)).
+- 2 × `DANGEROUS_EVAL`, in Zod: its optional compiled validators. Recall turns them off (`jitless` in `src/schemas/zod.ts`), and the Manifest V3 content security policy would block them anyway.
+- 2 × `UNSAFE_VAR_ASSIGNMENT`, in React DOM: its own internal `innerHTML` use. Recall never sets HTML from data.
 
 ## End-to-end tests
 
@@ -102,9 +145,7 @@ pnpm install
 - **Chrome** uses your installed Google Chrome. Chrome 137+ ignores `--load-extension`, so the tests install the build through the DevTools protocol (`Extensions.loadUnpacked`), the same way web-ext does.
 - **Firefox** uses your installed Firefox through Playwright's experimental `moz-firefox` channel (WebDriver BiDi). WebDriver cannot install extensions or script, click, or type in `moz-extension://` pages, so the tests use Firefox's remote debugging protocol for those steps (`tests/e2e/support/firefox-remote.ts`). On Ubuntu's snap Firefox, test profiles are created in `~/snap/firefox/common/recall-e2e-profiles/` and deleted afterwards.
 
-The tests save real pages from a small local website (`tests/e2e/support/test-site.ts`), including a PDF, so they need no network. The toolbar button is clicked the way a user would click it, so the browser grants `activeTab` and opens the real popup: Chrome through `Extensions.triggerAction`, Firefox through its browser process. In Firefox the tests also press Recall's keyboard shortcuts and choose its right-click menu items. Pages Recall cannot save (browser pages, local files) and the PDF viewer are covered in `special-pages.spec.ts`.
-
-Chrome's DevTools protocol cannot open native context menus or press extension shortcuts, so in Chrome those paths are checked by hand (see [Manual checks](#manual-checks)). They run the same application code as the popup, which the Chrome tests do cover.
+The tests save real pages from a small local website (`tests/e2e/support/test-site.ts`), including a PDF, so they need no network. The toolbar button is clicked the way a user would click it, so the browser grants `activeTab` and opens the real popup: Chrome through `Extensions.triggerAction`, Firefox through its browser process. In Firefox the tests also run Recall's keyboard shortcuts and choose its right-click menu items through the browser process. Pages Recall cannot save (browser pages, local files) and the PDF viewer are covered in `special-pages.spec.ts`. Real key presses and right-click menus, in both browsers, are in `desktop.spec.ts` ([below](#real-keys-and-menus)).
 
 Most tests read and change extension pages by running code inside them (`tests/e2e/support/dom.ts`). Tests that check what a person does with the mouse and keyboard use real input instead (`page.user` in `tests/e2e/support/types.ts`): trusted events that go through the browser and can open its file chooser.
 
@@ -128,16 +169,36 @@ Import and export are covered in `backup.spec.ts`:
 
 The storage tests include a restart check: the test saves a record, closes the browser completely, starts it again on the same profile, and confirms the popup still reads the record.
 
+`lifecycle.spec.ts` covers:
+
+- Every keyboard shortcut is assigned (`commands.getAll()`), and Chrome's `chrome://extensions/shortcuts` page shows them. Chrome leaves a shortcut empty when it uses the keys itself.
+- Firefox: none of Firefox's own shortcuts or menu bar letters uses Recall's keys.
+- Firefox: after the background is stopped, a shortcut and a right-click menu item wake it and save.
+- An update (a copy of the build with a higher version, reloaded) keeps the library, the right-click items, and the shortcuts.
+- An update from a build with the earlier shortcuts (`Alt+Shift+R`, `S`, `H`) assigns the current ones. Chrome 120 keeps the earlier key for opening Recall; Chrome 153 and Firefox move all three. Recall was never published with the earlier keys.
+
+`appearance.spec.ts` opens the popup and the library in the light and dark colour schemes, checks that they follow the scheme and do not scroll sideways, and saves screenshots in `test-results/` to look over.
+
+In Firefox, keys that the tests send to a page through the browser never reach extension shortcuts, although a person's key presses do. So `pressShortcut` runs the shortcut's command, as the keys would, and `desktop.spec.ts` presses the real keys.
+
+### Real keys and menus
+
+Browsers ignore extension shortcuts and cannot open their native right-click menus when the input comes from Chrome's DevTools protocol or from keys a test sends through Firefox. So `desktop.spec.ts` starts the browser with a visible window on a private virtual display (Xvfb) and sends key presses and clicks through the X server (XTest), as a person's input arrives (`tests/e2e/support/virtual-display.ts` and `x11-input.py`). Nothing appears on your screen. It finds Recall's items in a menu by looking for Recall's icon inside the menu's window, and saves a screenshot of each menu in `test-results/desktop-…/`.
+
+The tests are skipped when Xvfb is missing: `pnpm test:tools` downloads it on Debian and Ubuntu (with `apt-get download`, without installing it). They also need `python3` and the system's `libX11` and `libXtst`, which desktop Ubuntu has. They run in all four test browsers and cover:
+
+- `Alt+Shift+M` opens the popup. `Alt+Shift+D` saves the page, and pressing it again reports that the page was already saved. `Alt+Shift+L` saves the selection, or asks for one when nothing is selected.
+- Right-click a page: one Recall item, which saves the page (twice: saved, then already saved). With text selected: one Recall item, which saves the selection.
+- No Recall items on a `file://` page, nor on `chrome://extensions` in Chrome.
+- Chrome's PDF viewer: select all, open the menu with `Shift+F10`, and **Save selection to Recall** saves the PDF's text, title, and address. (Firefox's PDF viewer is a web page, covered in `special-pages.spec.ts`.)
+- Access keys: Recall's shortcuts work on a page with Wikipedia's access keys. On a page whose access keys are Recall's letters, Firefox gives the keys to the page and Chrome gives them to Recall.
+
 ### Manual checks
 
-Run these in **Chrome** before a release; Firefox runs them automatically. Chrome ignores extension shortcuts sent through its DevTools protocol, and the protocol cannot open native context menus, so Playwright cannot do these in Chrome. Also look at the toolbar badge in both browsers, since the tests read its text and tooltip but cannot see it.
+Before a release, check what the tests do not:
 
-1. Right-click a web page: **Save page to Recall** appears, saves the page, and the toolbar button shows a green ✓ with the tooltip "Recall: Page saved." Doing it again shows a grey ✓ and "Page was already saved."
-2. Select text, right-click it: only **Save selection to Recall** appears, and it saves a highlight.
-3. Press `Alt+Shift+S`, then select text and press `Alt+Shift+H`: both save, with the same badge feedback. Press `Alt+Shift+H` with nothing selected: red ! and "Select some text on the page first."
-4. Press `Alt+Shift+R`: the popup opens.
-5. Open a PDF in Chrome's viewer, select text, right-click **Save selection to Recall**: it saves the text.
-6. On `chrome://extensions` and on a `file://` page, right-click: the Recall items do not appear.
+1. Look at the toolbar badge in both browsers after a save: a green ✓ for saved, a grey ✓ for already saved, a red ! for a problem. The tests read the badge's text and tooltip, not its colour.
+2. In **Firefox on Windows**, press `Alt+Shift+D` on a web page, then select text and press `Alt+Shift+L`: both save, and no Firefox menu opens. The tests run on Linux only. There, real key presses showed that Firefox opens its History menu for `Alt+Shift+S` and its Help menu for `Alt+Shift+H`, the keys Recall used before.
 
 ## Architecture
 

@@ -1,46 +1,111 @@
 import { readFileSync } from 'node:fs';
-import { chromium, type BrowserContext, type CDPSession, type Page } from '@playwright/test';
+import { join } from 'node:path';
+import {
+  chromium,
+  test,
+  type BrowserContext,
+  type CDPSession,
+  type Page,
+  type Worker,
+} from '@playwright/test';
+import { desktopControls } from './desktop';
 import {
   callExpression,
   unavailableInput,
   waitUntil,
   type BrowserDownload,
+  type ColorScheme,
   type ExtensionPage,
   type InstalledExtension,
   type LaunchedExtension,
   type LaunchOptions,
   type UserInput,
+  type WebPage,
 } from './types';
 
-type TargetInfo = { targetId: string; type: string; url: string };
+type TargetInfo = { targetId: string; type: string; url: string; title: string };
 
 // Branded Chrome 137+ ignores --load-extension, so we install through the DevTools
-// protocol instead (the same method web-ext uses). Playwright disables extensions by
-// default, so that flag is removed.
+// protocol instead (the same method web-ext uses). Chrome for Testing, used for the
+// oldest supported version, still accepts --load-extension, and Chrome 120 has no
+// Extensions domain in the protocol. Playwright disables extensions by default, so
+// that flag is removed.
 export async function launchChrome({
   extensionDir,
   profileDir,
   channel,
+  executablePath,
   headless,
+  colorScheme,
+  display,
 }: LaunchOptions): Promise<LaunchedExtension> {
+  const loadWithFlag = executablePath !== undefined;
+  const hidden = headless && !display;
   const context = await chromium.launchPersistentContext(profileDir, {
     ...(channel ? { channel } : {}),
-    headless,
-    args: ['--enable-unsafe-extension-debugging'],
+    ...(executablePath ? { executablePath } : {}),
+    ...(colorScheme ? { colorScheme } : {}),
+    // Before Chrome 132, plain --headless is the old headless mode, which cannot run
+    // extensions, so ask for the new one explicitly.
+    headless: hidden && !loadWithFlag,
+    args: [
+      ...(loadWithFlag
+        ? [
+            `--disable-extensions-except=${extensionDir}`,
+            `--load-extension=${extensionDir}`,
+            ...(hidden ? ['--headless=new'] : []),
+          ]
+        : ['--enable-unsafe-extension-debugging']),
+      // A window filling the virtual display, drawn through X11 (not the desktop's Wayland).
+      ...(display
+        ? [
+            '--ozone-platform=x11',
+            '--window-position=0,0',
+            `--window-size=${String(display.width)},${String(display.height)}`,
+          ]
+        : []),
+    ],
+    // On a display, pages get the window's real size, so screen positions match.
+    ...(display ? { env: display.env, viewport: null } : {}),
     ignoreDefaultArgs: ['--disable-extensions'],
   });
   const browser = context.browser();
   if (!browser) throw new Error('Chrome browser handle is unavailable');
   const session = await browser.newBrowserCDPSession();
-  const { id } = await session.send('Extensions.loadUnpacked', { path: extensionDir });
+  const id = loadWithFlag
+    ? await extensionIdFromWorker(context)
+    : (await session.send('Extensions.loadUnpacked', { path: extensionDir })).id;
   const origin = `chrome-extension://${id}/`;
+  const isOurs = (worker: Worker) => worker.url().startsWith(origin);
+  const background = async () =>
+    context.serviceWorkers().find(isOurs) ??
+    (await context.waitForEvent('serviceworker', { predicate: isOurs }));
+
+  // Popups already handed to a test; the next popup is any other one.
+  const popups = new Set<string>();
+  const nextPopup = async () => {
+    const popupUrl = `${origin}popup.html`;
+    let popup: TargetInfo | undefined;
+    await waitUntil(async () => {
+      popup = (await getTargets(session)).find(
+        (target) => target.url === popupUrl && !popups.has(target.targetId),
+      );
+      return popup !== undefined;
+    });
+    if (!popup) throw new Error('The popup did not open');
+    popups.add(popup.targetId);
+    const popupPage = await attachToTarget(session, popup.targetId, errors, colorScheme);
+    await waitUntil(
+      async () => (await popupPage.evaluate(() => document.readyState)) === 'complete',
+    );
+    return popupPage;
+  };
 
   const errors: string[] = [];
   const extension: InstalledExtension = {
     isBackgroundRunning: async () => {
-      const isOurs = (url: string) => url.startsWith(origin);
-      if (context.serviceWorkers().some((worker) => isOurs(worker.url()))) return true;
-      await context.waitForEvent('serviceworker', { predicate: (worker) => isOurs(worker.url()) });
+      if (context.serviceWorkers().some(isOurs)) return true;
+      await context.waitForEvent('serviceworker', { predicate: isOurs });
       return true;
     },
     openPage: async (path) => {
@@ -65,9 +130,38 @@ export async function launchChrome({
       return extensionPage(page, errors);
     },
     openWebPage: (url) => openWebPage(context, url),
-    openPopup: (page) => openPopup(session, id, page, errors),
+    openPopup: async (page) => {
+      await clickToolbarButton(session, id, page);
+      return nextPopup();
+    },
+    nextPopup,
+    toolbarButton: async () =>
+      (await background()).evaluate<{ badge: string; title: string }>(`(async () => {
+        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        return {
+          badge: await chrome.action.getBadgeText({ tabId: tab.id }),
+          title: await chrome.action.getTitle({ tabId: tab.id }),
+        };
+      })()`),
+    tabTitle: async (page) =>
+      (await getTargets(session, 'page')).find((target) => target.url === page.url())?.title ?? '',
     browserDownloads: () => browserDownloads(context),
+    reload: async () => {
+      // Chrome starts the new service worker to tell it about the update.
+      const restarted = context.waitForEvent('serviceworker', { predicate: isOurs });
+      if (loadWithFlag) {
+        const page = await context.newPage();
+        await page.goto(`${origin}popup.html`);
+        // The page closes as the extension reloads, so the reload runs after it replies.
+        await page.evaluate('setTimeout(() => chrome.runtime.reload(), 0)');
+      } else {
+        // Loading the same folder again updates the extension, keeping its ID.
+        await session.send('Extensions.loadUnpacked', { path: extensionDir });
+      }
+      await restarted;
+    },
     firefox: undefined,
+    desktop: display ? desktopControls(display, join(extensionDir, 'icon/16.png')) : undefined,
   };
   return { extension, close: () => context.close() };
 }
@@ -85,6 +179,7 @@ function extensionPage(page: Page, errors: string[]): ExtensionPage {
       };
     },
     user: playwrightInput(page),
+    screenshot: () => page.screenshot(),
     close: () => page.close(),
   };
 }
@@ -151,6 +246,21 @@ async function browserDownloads(context: BrowserContext): Promise<BrowserDownloa
   }
 }
 
+// An extension loaded with --load-extension gets an ID derived from its folder, which
+// shows in its service worker's address.
+async function extensionIdFromWorker(context: BrowserContext): Promise<string> {
+  const worker =
+    context
+      .serviceWorkers()
+      .find((candidate) => candidate.url().startsWith('chrome-extension://')) ??
+    (await context.waitForEvent('serviceworker', {
+      predicate: (candidate) => candidate.url().startsWith('chrome-extension://'),
+    }));
+  const id = new URL(worker.url()).host;
+  if (id === '') throw new Error(`No extension ID in ${worker.url()}`);
+  return id;
+}
+
 async function openWebPage(context: BrowserContext, url: string): Promise<Page> {
   // Reuse the blank start tab so tabs can be told apart by their URL.
   const page =
@@ -163,33 +273,27 @@ async function openWebPage(context: BrowserContext, url: string): Promise<Page> 
 // Extensions.triggerAction runs the toolbar button's action for a tab, exactly like a
 // click: Chrome grants activeTab and opens the popup. Playwright does not attach to
 // popups, so the popup is driven through its own DevTools session.
-async function openPopup(
+async function clickToolbarButton(
   session: CDPSession,
   extensionId: string,
-  page: Page,
-  errors: string[],
-): Promise<ExtensionPage> {
+  page: WebPage,
+): Promise<void> {
   await page.bringToFront();
   const tabs = await getTargets(session, 'tab');
   const tab = tabs.filter((target) => target.url === page.url());
   if (tab.length !== 1 || !tab[0]) {
     throw new Error(`Expected one tab showing ${page.url()}, found ${String(tab.length)}`);
   }
-  const popupUrl = `chrome-extension://${extensionId}/popup.html`;
-  const before = new Set((await getTargets(session)).map((target) => target.targetId));
-  await session.send('Extensions.triggerAction', { id: extensionId, targetId: tab[0].targetId });
-
-  let popup: TargetInfo | undefined;
-  await waitUntil(async () => {
-    popup = (await getTargets(session)).find(
-      (target) => target.url === popupUrl && !before.has(target.targetId),
+  try {
+    await session.send('Extensions.triggerAction', { id: extensionId, targetId: tab[0].targetId });
+  } catch (error) {
+    // Chrome 120 cannot click the toolbar button from tests.
+    test.skip(
+      String(error).includes("wasn't found"),
+      'This Chrome has no Extensions.triggerAction',
     );
-    return popup !== undefined;
-  });
-  if (!popup) throw new Error('The popup did not open');
-  const popupPage = await attachToTarget(session, popup.targetId, errors);
-  await waitUntil(async () => (await popupPage.evaluate(() => document.readyState)) === 'complete');
-  return popupPage;
+    throw error;
+  }
 }
 
 async function getTargets(session: CDPSession, type?: string): Promise<TargetInfo[]> {
@@ -205,6 +309,7 @@ async function attachToTarget(
   session: CDPSession,
   targetId: string,
   errors: string[],
+  colorScheme: ColorScheme | undefined,
 ): Promise<ExtensionPage> {
   const { sessionId } = await session.send('Target.attachToTarget', { targetId, flatten: false });
   let nextId = 1;
@@ -236,6 +341,12 @@ async function attachToTarget(
     });
 
   await send('Runtime.enable', {});
+  // Playwright's colour scheme only reaches the pages Playwright drives.
+  if (colorScheme) {
+    await send('Emulation.setEmulatedMedia', {
+      features: [{ name: 'prefers-color-scheme', value: colorScheme }],
+    });
+  }
   return {
     evaluate: async <T>(fn: (arg: never) => unknown, arg?: unknown): Promise<T> => {
       const reply = await send('Runtime.evaluate', {
@@ -253,6 +364,12 @@ async function attachToTarget(
     errors: () => [...errors],
     download: () => Promise.reject(new Error('Tests cannot download from the popup')),
     user: unavailableInput('the popup'),
+    screenshot: async () => {
+      const reply = await send('Page.captureScreenshot', { format: 'png' });
+      const image = reply.result as { data?: string } | undefined;
+      if (image?.data === undefined) throw new Error('The popup could not be captured');
+      return Buffer.from(image.data, 'base64');
+    },
     close: async () => {
       await session.send('Target.closeTarget', { targetId });
       await waitUntil(async () =>

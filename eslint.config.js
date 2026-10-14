@@ -6,7 +6,15 @@ import tseslint from 'typescript-eslint';
 
 export default defineConfig(
   {
-    ignores: ['.output/**', '.wxt/**', 'coverage/**', 'node_modules/**'],
+    ignores: [
+      '.output/**',
+      '.wxt/**',
+      'coverage/**',
+      'node_modules/**',
+      'test-results/**',
+      'playwright-report/**',
+      'blob-report/**',
+    ],
   },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,

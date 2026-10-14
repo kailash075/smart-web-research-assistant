@@ -23,7 +23,9 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "pnpm build && pnpm build:firefox && playwright test",
+    "test:e2e": "pnpm build && pnpm build:firefox && playwright test --project chrome --project firefox",
+    "test:tools": "bash scripts/get-test-tools.sh",
+    "test:e2e:oldest": "pnpm build && pnpm build:firefox && playwright test --project chrome-120 --project firefox-140",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build && pnpm build:firefox && pnpm lint:firefox"
   },
   "dependencies": {

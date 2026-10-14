@@ -2,6 +2,9 @@
   "extends": "./.wxt/tsconfig.json",
   "compilerOptions": {
     "jsx": "react-jsx",
+    // The JavaScript built-ins of the oldest supported browsers (Chrome 120, Firefox 140),
+    // so newer APIs such as Promise.withResolvers fail to type-check.
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "exactOptionalPropertyTypes": true,
     "noImplicitReturns": true,
     "noPropertyAccessFromIndexSignature": true,

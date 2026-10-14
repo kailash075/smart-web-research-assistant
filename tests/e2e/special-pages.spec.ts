@@ -70,12 +70,14 @@ test('in a PDF, the page can be saved and the popup explains how to save a selec
 });
 
 test('in a PDF, right-clicking a selection saves it', async ({ extension, site }) => {
-  test.skip(!extension.firefox, 'Chrome cannot open native context menus from tests');
+  test.skip(!extension.firefox, "Chrome's PDF viewer: see desktop.spec.ts");
   const firefox = extension.firefox;
   if (!firefox) return;
   const pdf = await extension.openWebPage(site.url('/paper.pdf'));
   // Firefox's PDF viewer (pdf.js) renders the text as spans that can be selected.
-  await pdf.locator('.textLayer span', { hasText: PDF_TEXT }).waitFor();
+  await expect
+    .poll(() => pdf.evaluate(() => document.querySelector('.textLayer span')?.textContent ?? null))
+    .toBe(PDF_TEXT);
   await selectText(pdf, '.textLayer span');
 
   expect(await firefox.contextMenuItems(pdf, '.textLayer span')).toEqual([
@@ -84,7 +86,7 @@ test('in a PDF, right-clicking a selection saves it', async ({ extension, site }
   await firefox.chooseContextMenuItem(pdf, '.textLayer span', 'Save selection to Recall');
 
   await expect
-    .poll(() => firefox.toolbarButton())
+    .poll(() => extension.toolbarButton())
     .toEqual({ badge: '✓', title: 'Recall: Highlight saved.' });
   const library = await extension.openPage('library.html');
   await expect

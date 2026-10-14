@@ -1,17 +1,20 @@
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { firefox, type BrowserContext, type Page } from '@playwright/test';
+import { firefox, type BrowserContext } from '@playwright/test';
 import {
   connectFirefoxDebugger,
   debugExtension,
   evaluateToString,
   getAddon,
   getParentProcessConsole,
+  getTabConsole,
   installTemporaryAddon,
   type ExtensionDebugSession,
   type FirefoxDebugger,
 } from './firefox-remote';
+import { desktopControls } from './desktop';
 import { findFreePort } from './ports';
 import {
   callExpression,
@@ -25,7 +28,9 @@ import {
   type LaunchedExtension,
   type LaunchOptions,
   type UserInput,
+  type WebPage,
 } from './types';
+import type { VirtualDisplay } from './virtual-display';
 
 // The `browser` namespace of the extension's own pages.
 declare const browser: { tabs: { getCurrent: () => Promise<{ id?: number } | undefined> } };
@@ -34,20 +39,34 @@ declare const browser: { tabs: { getCurrent: () => Promise<{ id?: number } | und
 type BrowserCode = (code: string) => Promise<string>;
 type PageScript = Pick<ExtensionPage, 'evaluate'>;
 
+type Prefs = Record<string, string | number | boolean>;
+
+/** A started Firefox. `context` is Playwright's handle, when Playwright started it. */
+type RunningFirefox = { context: BrowserContext | undefined; exit: () => Promise<void> };
+
 // Playwright drives the installed Firefox over WebDriver BiDi (channel "moz-firefox"),
 // which can open and script normal web pages. Installing the add-on, reading its
 // pages, and simulating toolbar clicks, shortcuts, and context menus go through
 // Firefox's debugger protocol.
+//
+// Playwright's BiDi client needs a recent Firefox (it uses network.addDataCollector,
+// which Firefox 140 lacks), so a specific Firefox (`executablePath`, such as the oldest
+// supported one) is started directly instead, and its web pages are opened and scripted
+// through the debugger protocol too.
 export async function launchFirefox({
   extensionDir,
   profileDir,
   channel,
+  executablePath,
   headless,
+  colorScheme,
+  display,
   addonId,
 }: LaunchOptions & { addonId: string }): Promise<LaunchedExtension> {
   const debuggerPort = await findFreePort();
-  let context: BrowserContext | undefined;
+  let running: RunningFirefox | undefined;
   let client: FirefoxDebugger | undefined;
+  let quit: (() => Promise<void>) | undefined;
   // Playwright sends downloads to a folder in /tmp, which snap Firefox cannot write to.
   const downloadsDir = join(profileDir, 'recall-downloads');
   // Files the tests pick in the file chooser, also where snap Firefox can read them.
@@ -55,34 +74,46 @@ export async function launchFirefox({
   mkdirSync(downloadsDir, { recursive: true });
   mkdirSync(uploadsDir, { recursive: true });
   const close = async () => {
+    await quit?.();
     client?.close();
-    await context?.close();
+    await running?.exit();
+  };
+  const prefs: Prefs = {
+    'devtools.debugger.remote-enabled': true,
+    'devtools.debugger.prompt-connection': false,
+    // Allows evaluating code in the browser's own process (toolbar, menus, keys).
+    'devtools.chrome.enabled': true,
+    // Tests install the add-on temporarily, and uninstalling an add-on deletes its
+    // storage. Firefox 156 kept the data across a restart even without these prefs,
+    // but they guarantee the temporary install behaves like a normal signed one.
+    'extensions.webextensions.keepStorageOnUninstall': true,
+    'extensions.webextensions.keepUuidOnUninstall': true,
+    // Firefox's experiments service (Nimbus) sometimes blocks quitting while a recipe
+    // update is in flight ("RemoteSettingsExperimentLoader: disabling"), until the
+    // shutdown watchdog ends Firefox after a minute. Nimbus cannot be turned off
+    // from a profile, so give the watchdog 10 seconds instead.
+    'toolkit.asyncshutdown.crash_timeout': 10_000,
+    // What pages see in prefers-color-scheme. Popups follow the browser's own theme,
+    // which follows the system's.
+    ...(colorScheme && {
+      'ui.systemUsesDarkTheme': colorScheme === 'dark' ? 1 : 0,
+      'layout.css.prefers-color-scheme.content-override': colorScheme === 'dark' ? 0 : 1,
+    }),
   };
 
   try {
-    context = await firefox.launchPersistentContext(profileDir, {
-      ...(channel ? { channel } : {}),
-      headless,
-      downloadsPath: downloadsDir,
-      args: [`--start-debugger-server=${String(debuggerPort)}`],
-      firefoxUserPrefs: {
-        'devtools.debugger.remote-enabled': true,
-        'devtools.debugger.prompt-connection': false,
-        // Allows evaluating code in the browser's own process (toolbar, menus, keys).
-        'devtools.chrome.enabled': true,
-        // Tests install the add-on temporarily, and uninstalling an add-on deletes its
-        // storage. Firefox 156 kept the data across a restart even without these prefs,
-        // but they guarantee the temporary install behaves like a normal signed one.
-        'extensions.webextensions.keepStorageOnUninstall': true,
-        'extensions.webextensions.keepUuidOnUninstall': true,
-        // Firefox's experiments service (Nimbus) sometimes blocks quitting while a recipe
-        // update is in flight ("RemoteSettingsExperimentLoader: disabling"), until the
-        // shutdown watchdog ends Firefox after a minute. Nimbus cannot be turned off
-        // from a profile, so give the watchdog 10 seconds instead.
-        'toolkit.asyncshutdown.crash_timeout': 10_000,
-      },
-    });
-    const browserContext = context;
+    running = executablePath
+      ? startFirefox(executablePath, profileDir, debuggerPort, display, {
+          ...prefs,
+          ...DIRECT_START_PREFS,
+          'browser.download.dir': downloadsDir,
+        })
+      : await startWithPlaywright(profileDir, debuggerPort, display, prefs, {
+          headless,
+          channel,
+          downloadsDir,
+        });
+    const browserContext = running.context;
     const debuggerClient = await connectFirefoxDebugger(debuggerPort);
     client = debuggerClient;
     const installedId = await installTemporaryAddon(debuggerClient, extensionDir);
@@ -92,12 +123,25 @@ export async function launchFirefox({
     const parent = await getParentProcessConsole(debuggerClient);
     const browserCode: BrowserCode = (code) =>
       evaluateToString(debuggerClient, parent, browserProcessScript(addonId, code));
+    if (!browserContext) {
+      // Quits the way the File menu does, so Firefox saves everything first.
+      quit = async () => {
+        await browserCode(
+          'Services.tm.dispatchToMainThread(() => Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit));',
+        ).catch(() => undefined);
+      };
+    }
 
+    const screenshot = async (consoleActor: string) => {
+      const address = await evaluateToString(debuggerClient, consoleActor, 'location.href');
+      return Buffer.from(await browserCodeAsync(browserCode, drawPage(address)), 'base64');
+    };
     const attachPopup = async (appeared: Promise<string>) => {
       const consoleActor = await appeared;
       return openedPage(debuggerClient, session, consoleActor, {
         downloadsDir,
         input: () => unavailableInput('the popup'),
+        screenshot: () => screenshot(consoleActor),
         close: async () => {
           await closeWindow(debuggerClient, consoleActor);
           await waitUntil(
@@ -111,15 +155,18 @@ export async function launchFirefox({
       openedPage(debuggerClient, session, consoleActor, {
         downloadsDir,
         input: (page) => firefoxTabInput(page, browserCode, uploadsDir),
+        screenshot: () => screenshot(consoleActor),
         close: () => closeWindow(debuggerClient, consoleActor),
       });
+    const nextPopup = () => attachPopup(session.waitForPage('/popup.html'));
 
     const extension: InstalledExtension = {
       isBackgroundRunning: async () =>
         (await getAddon(debuggerClient, addonId))['backgroundScriptStatus'] === 'RUNNING',
-      openPage: async (path) => tabPage(await openExtensionTab(debuggerClient, session, path)),
+      openPage: async (path) => tabPage(await openExtensionTab(session, browserCode, path)),
       nextPage: async (path) => tabPage(await session.waitForPage(`/${path}`)),
       openWebPage: async (url) => {
+        if (!browserContext) return openDebuggedWebPage(debuggerClient, browserCode, url);
         const page =
           browserContext.pages().find((open) => open.url() === 'about:blank') ??
           (await browserContext.newPage());
@@ -144,9 +191,30 @@ export async function launchFirefox({
               ({ url: download.source.url, complete: download.succeeded })));`,
           ),
         ) as BrowserDownload[],
-      firefox: firefoxControls(debuggerClient, session, browserCode, () =>
-        attachPopup(session.waitForPage('/popup.html')),
-      ),
+      reload: async () => {
+        const addon = await getAddon(debuggerClient, addonId);
+        await debuggerClient.request({ to: String(addon['actor']), type: 'reload' });
+      },
+      nextPopup,
+      // Reads the button as Firefox shows it for the selected tab.
+      toolbarButton: async () =>
+        JSON.parse(
+          await browserCode(`
+            const tab = win.gBrowser.selectedTab;
+            const { action } = actionButton();
+            return JSON.stringify({
+              badge: action.getProperty(tab, 'badgeText'),
+              title: action.getProperty(tab, 'title'),
+            });`),
+        ) as { badge: string; title: string },
+      tabTitle: (page) =>
+        browserCode(`
+          const url = ${JSON.stringify(page.url())};
+          const tab = win.gBrowser.tabs.find((candidate) =>
+            candidate.linkedBrowser.currentURI.spec === url);
+          return tab ? tab.label : '';`),
+      firefox: firefoxControls(debuggerClient, addonId, browserCode, nextPopup),
+      desktop: display ? desktopControls(display, join(extensionDir, 'icon/16.png')) : undefined,
     };
     return { extension, close };
   } catch (error) {
@@ -155,43 +223,144 @@ export async function launchFirefox({
   }
 }
 
+// Starts Firefox through Playwright, which can then open and script web pages.
+async function startWithPlaywright(
+  profileDir: string,
+  debuggerPort: number,
+  display: VirtualDisplay | undefined,
+  prefs: Prefs,
+  {
+    headless,
+    channel,
+    downloadsDir,
+  }: { headless: boolean; channel: string | undefined; downloadsDir: string },
+): Promise<RunningFirefox> {
+  const context = await firefox.launchPersistentContext(profileDir, {
+    ...(channel ? { channel } : {}),
+    headless: headless && !display,
+    downloadsPath: downloadsDir,
+    args: [`--start-debugger-server=${String(debuggerPort)}`, ...windowArgs(display)],
+    firefoxUserPrefs: prefs,
+    // On a display, pages get the window's real size, so screen positions match.
+    ...(display ? { env: display.env, viewport: null } : {}),
+  });
+  return { context, exit: () => context.close() };
+}
+
+// Prefs that WebDriver normally sets: no first-run pages, prompts, or background
+// network traffic, and downloads saved without asking (into browser.download.dir).
+const DIRECT_START_PREFS: Prefs = {
+  'browser.shell.checkDefaultBrowser': false,
+  'browser.startup.homepage_override.mstone': 'ignore',
+  'browser.startup.page': 0,
+  'browser.aboutwelcome.enabled': false,
+  'browser.tabs.warnOnClose': false,
+  'datareporting.policy.dataSubmissionEnabled': false,
+  'datareporting.policy.dataSubmissionPolicyBypassNotification': true,
+  'toolkit.telemetry.reportingpolicy.firstRun': false,
+  'services.settings.server': 'data:,#remote-settings-dummy/v1',
+  'network.captive-portal-service.enabled': false,
+  'browser.safebrowsing.malware.enabled': false,
+  'browser.safebrowsing.phishing.enabled': false,
+  'browser.download.folderList': 2,
+  'browser.download.useDownloadDir': true,
+  'browser.download.always_ask_before_handling_new_types': false,
+  'browser.download.alwaysOpenPanel': false,
+  // Otherwise the first download opens the downloads panel over the top of the page.
+  'browser.download.panel.shown': true,
+};
+
+// A window filling the virtual display, if there is one.
+function windowArgs(display: VirtualDisplay | undefined): string[] {
+  return display ? [`--window-size=${String(display.width)},${String(display.height)}`] : [];
+}
+
+// Starts Firefox without Playwright, headless unless it has a display. The prefs go
+// into the profile's user.js.
+function startFirefox(
+  executablePath: string,
+  profileDir: string,
+  debuggerPort: number,
+  display: VirtualDisplay | undefined,
+  prefs: Prefs,
+): RunningFirefox {
+  writeFileSync(
+    join(profileDir, 'user.js'),
+    Object.entries(prefs)
+      .map(([name, value]) => `user_pref(${JSON.stringify(name)}, ${JSON.stringify(value)});`)
+      .join('\n'),
+  );
+  const child = spawn(
+    executablePath,
+    [
+      '-profile',
+      profileDir,
+      '-no-remote',
+      ...(display ? windowArgs(display) : ['-headless']),
+      '--start-debugger-server',
+      String(debuggerPort),
+      'about:blank',
+    ],
+    { stdio: 'ignore', ...(display ? { env: display.env } : {}) },
+  );
+  const exited = new Promise<void>((resolve) => {
+    child.once('exit', () => {
+      resolve();
+    });
+  });
+  return {
+    context: undefined,
+    // Waits for Firefox to quit (asked for through the debugger), then makes sure.
+    exit: async () => {
+      const timer = setTimeout(() => child.kill('SIGKILL'), 20_000);
+      if (child.exitCode === null && child.signalCode === null) await exited;
+      clearTimeout(timer);
+    },
+  };
+}
+
 function firefoxControls(
   client: FirefoxDebugger,
-  session: ExtensionDebugSession,
+  addonId: string,
   browserCode: (code: string) => Promise<string>,
   nextPopup: () => Promise<ExtensionPage>,
 ): FirefoxControls {
-  const openContextMenu = async (page: Page, selector: string) => {
-    await browserCode(selectTab(page));
-    await page.click(selector, { button: 'right' });
+  // Right-clicks the element: the browser window sends the mouse events to the page,
+  // which asks the browser to show its context menu. (Native mouse events would not
+  // open the menu in headless Firefox.)
+  const openContextMenu = async (page: WebPage, selector: string) => {
+    const point = await page.evaluate(centerOf, selector);
+    await browserCode(`${selectTab(page)}
+      const box = win.gBrowser.selectedBrowser.getBoundingClientRect();
+      const x = box.left + ${String(point.x)};
+      const y = box.top + ${String(point.y)};
+      for (const type of ['mousedown', 'contextmenu', 'mouseup']) {
+        // Newer Firefox (156 here) has window.synthesizeMouseEvent instead of sendMouseEvent.
+        if (win.synthesizeMouseEvent) {
+          win.synthesizeMouseEvent(type, x, y, { button: 2, clickCount: 1 });
+        } else {
+          win.windowUtils.sendMouseEvent(type, x, y, 2, 1, 0);
+        }
+      }`);
     await waitUntil(async () => (await browserCode('return contextMenu().state;')) === 'open');
   };
 
   return {
-    nextPopup,
     openPopupOnBrowserPage: async (url) => {
       await browserCode(`
         const tab = win.gBrowser.addTab(${JSON.stringify(url)}, {
           triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
         });
         win.gBrowser.selectedTab = tab;`);
-      // Pages in a content process (such as about:reader) send no load event to the
-      // browser window, so poll until the tab has finished loading.
-      await waitUntil(
-        async () =>
-          (await browserCode(`
-            const browser = win.gBrowser.selectedBrowser;
-            const loaded = browser.currentURI.spec !== 'about:blank' &&
-              !browser.webProgress.isLoadingDocument;
-            return loaded ? 'loaded' : '';`)) === 'loaded',
-      );
+      await waitForSelectedTab(browserCode);
       const popupOpened = nextPopup();
       await browserCode('actionButton().triggerAction(win);');
       return popupOpened;
     },
     pressShortcut: async (page, shortcut) => {
       // Firefox registers each extension shortcut as a <key> element in the browser
-      // window; running its command is what pressing the keys does.
+      // window; running its command is what pressing the keys does. (Keys synthesized
+      // for tests and sent to a page never reach these elements, unlike a person's.)
       const parts = shortcut.split('+');
       const key = parts.pop() ?? '';
       const modifiers = parts.map((part) => part.toLowerCase()).join(',');
@@ -221,16 +390,43 @@ function firefoxControls(
         item.doCommand();
         contextMenu().hidePopup();`);
     },
-    toolbarButton: async () => {
-      const state = await evaluateInPage<{ badge: string; title: string }>(
-        client,
-        session.backgroundConsole,
-        `browser.tabs.query({ active: true, currentWindow: true }).then(async ([tab]) => ({
-          badge: await browser.action.getBadgeText({ tabId: tab.id }),
-          title: await browser.action.getTitle({ tabId: tab.id }),
-        }))`,
+    menuBarAccessKeys: async () =>
+      JSON.parse(
+        await browserCode(`
+          return JSON.stringify([...win.document.querySelectorAll('#main-menubar > menu')]
+            .map((menu) => (menu.getAttribute('accesskey') ?? '').toUpperCase())
+            .filter(Boolean));`),
+      ) as string[],
+    browserShortcuts: async () =>
+      JSON.parse(
+        await browserCode(`
+          const names = {
+            accel: Services.appinfo.OS === 'Darwin' ? 'Command' : 'Ctrl',
+            control: 'Ctrl',
+            meta: 'Command',
+            alt: 'Alt',
+            shift: 'Shift',
+          };
+          const order = ['Ctrl', 'Command', 'Alt', 'Shift'];
+          const shortcuts = [...win.document.querySelectorAll('key')]
+            .filter((key) => !key.parentElement.id.startsWith('ext-keyset-id-') &&
+              key.getAttribute('disabled') !== 'true')
+            .map((key) => {
+              const modifiers = (key.getAttribute('modifiers') ?? '').split(/[\\s,]+/)
+                .map((name) => names[name] ?? name);
+              const main = key.getAttribute('key') ||
+                (key.getAttribute('keycode') ?? '').replace(/^VK_/, '');
+              return [...order.filter((name) => modifiers.includes(name)), main.toUpperCase()]
+                .join('+');
+            });
+          return JSON.stringify([...new Set(shortcuts)].sort());`),
+      ) as string[],
+    stopBackground: async () => {
+      const addon = await getAddon(client, addonId);
+      await client.request({ to: String(addon['actor']), type: 'terminateBackgroundScript' });
+      await waitUntil(
+        async () => (await getAddon(client, addonId))['backgroundScriptStatus'] !== 'RUNNING',
       );
-      return state;
     },
   };
 }
@@ -260,8 +456,65 @@ function browserProcessScript(addonId: string, code: string): string {
   })()`;
 }
 
+// Waits until the selected tab has loaded its page. Pages in a content process send no
+// load event to the browser window, so this polls.
+function waitForSelectedTab(browserCode: BrowserCode): Promise<void> {
+  return waitUntil(
+    async () =>
+      (await browserCode(`
+        const browser = win.gBrowser.selectedBrowser;
+        const loaded = browser.currentURI.spec !== 'about:blank' &&
+          !browser.webProgress.isLoadingDocument;
+        return loaded ? 'loaded' : '';`)) === 'loaded',
+  );
+}
+
+// Opens a web page in a new tab and scripts it through the debugger protocol, for a
+// Firefox that Playwright cannot drive.
+async function openDebuggedWebPage(
+  client: FirefoxDebugger,
+  browserCode: BrowserCode,
+  url: string,
+): Promise<WebPage> {
+  await browserCode(`
+    const tab = win.gBrowser.addTab(${JSON.stringify(url)}, {
+      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+    });
+    win.gBrowser.selectedTab = tab;`);
+  await waitForSelectedTab(browserCode);
+  const browser = JSON.parse(
+    await browserCode(`
+      const browser = win.gBrowser.selectedBrowser;
+      return JSON.stringify({ url: browser.currentURI.spec, id: browser.browserId });`),
+  ) as { url: string; id: number };
+  const consoleActor = await getTabConsole(client, browser.id);
+  await waitUntil(
+    async () =>
+      (await evaluateToString(client, consoleActor, 'document.readyState')) === 'complete',
+  );
+  const page: WebPage = {
+    url: () => browser.url,
+    evaluate: <T, A>(fn: (arg: A) => T | Promise<T>, arg?: A) =>
+      evaluateInPage<T>(client, consoleActor, callExpression(fn, arg)),
+    bringToFront: async () => {
+      await browserCode(selectTab(page));
+    },
+  };
+  return page;
+}
+
+// Scrolls the element into view and returns its centre, in CSS pixels from the top left
+// of the page's viewport. Runs in the page.
+function centerOf(selector: string): { x: number; y: number } {
+  const element = document.querySelector(selector);
+  if (!element) throw new Error(`Nothing matches ${selector}`);
+  element.scrollIntoView({ block: 'center', behavior: 'instant' });
+  const box = element.getBoundingClientRect();
+  return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+}
+
 // Makes the tab showing `page` the selected tab, as a user clicking it would.
-function selectTab(page: Page): string {
+function selectTab(page: Pick<WebPage, 'url'>): string {
   const url = JSON.stringify(page.url());
   return `
     const tab = win.gBrowser.tabs.find((candidate) =>
@@ -278,17 +531,37 @@ function widgetIdOf(addonId: string): string {
 // Extension pages cannot be opened by WebDriver, so the extension opens its own tab.
 // Resolves with the new page's console actor.
 async function openExtensionTab(
-  client: FirefoxDebugger,
   session: ExtensionDebugSession,
+  browserCode: BrowserCode,
   path: string,
 ): Promise<string> {
   const appeared = session.waitForPage(`/${path}`);
-  await evaluateToString(
-    client,
-    session.backgroundConsole,
-    `browser.tabs.create({ url: ${JSON.stringify(`/${path}`)} }), 'ok'`,
-  );
+  await browserCode(`
+    const tab = win.gBrowser.addTab(extension.baseURI.resolve(${JSON.stringify(path)}), {
+      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+    });
+    win.gBrowser.selectedTab = tab;`);
   return appeared;
+}
+
+// Browser-process code (for browserCodeAsync) that draws the extension page at
+// `address`, in a tab or the popup, as Firefox shows it. Returns a base64 PNG.
+function drawPage(address: string): string {
+  return `
+    const popup = openPopup();
+    const browsers = [...win.gBrowser.browsers, ...(popup ? [popup.browser] : [])];
+    const browser = browsers.find((candidate) =>
+      candidate.currentURI.spec === ${JSON.stringify(address)});
+    if (!browser) throw new Error('No tab or popup shows ' + ${JSON.stringify(address)});
+    const tab = win.gBrowser.getTabForBrowser(browser);
+    if (tab) win.gBrowser.selectedTab = tab;
+    const image = await browser.browsingContext.currentWindowGlobal.drawSnapshot(
+      null, win.devicePixelRatio, 'white');
+    const canvas = win.document.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    canvas.getContext('2d').drawImage(image, 0, 0);
+    return canvas.toDataURL('image/png').split(',')[1];`;
 }
 
 async function closeWindow(client: FirefoxDebugger, consoleActor: string): Promise<void> {
@@ -302,6 +575,7 @@ async function openedPage(
   options: {
     downloadsDir: string;
     input: (page: PageScript) => UserInput;
+    screenshot: () => Promise<Buffer>;
     close: () => Promise<void>;
   },
 ): Promise<ExtensionPage> {
@@ -318,6 +592,7 @@ async function openedPage(
     errors: () => [...session.errors],
     download: (action) => downloadInto(options.downloadsDir, action),
     user: options.input(script),
+    screenshot: options.screenshot,
     close: options.close,
   };
 }
@@ -374,13 +649,7 @@ function firefoxTabInput(
   };
 
   const click = async (selector: string) => {
-    const point = await page.evaluate((selector) => {
-      const element = document.querySelector(selector);
-      if (!element) throw new Error(`Nothing matches ${selector}`);
-      element.scrollIntoView({ block: 'center', behavior: 'instant' });
-      const box = element.getBoundingClientRect();
-      return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
-    }, selector);
+    const point = await page.evaluate(centerOf, selector);
     const tab = await selectTab();
     await sendAndWait('mouseup', 1, () =>
       browserCode(`${tab}

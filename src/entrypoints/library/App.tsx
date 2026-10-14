@@ -190,8 +190,8 @@ export function App() {
           <p>
             To save the page you are reading, click the Recall button in the toolbar or right-click
             the page and choose <strong>Save page to Recall</strong>. To save a highlight, select
-            text first. The default keyboard shortcuts are <kbd>Alt+Shift+S</kbd> (save page) and{' '}
-            <kbd>Alt+Shift+H</kbd> (save selection). You can also import a backup file.
+            text first. The default keyboard shortcuts are <kbd>Alt+Shift+D</kbd> (save page) and{' '}
+            <kbd>Alt+Shift+L</kbd> (save selection). You can also import a backup file.
           </p>
         </section>
       )}

@@ -29,14 +29,16 @@ export default defineBackground(() => {
   });
 
   browser.contextMenus.onClicked.addListener((info, tab) => {
-    const target = toBrowserTab(tab, info.pageUrl);
-    if (!target) return;
-    void runSave(
-      target,
-      info.menuItemId === MENU_SAVE_SELECTION
-        ? saveSelectionFromTab(services, target, {}, selectionSource(info))
-        : savePageFromTab(services, target),
-    );
+    void (async () => {
+      const target = toBrowserTab(tab, info.pageUrl) ?? (await pdfViewerTab(services, info, tab));
+      if (!target) return;
+      await runSave(
+        target,
+        info.menuItemId === MENU_SAVE_SELECTION
+          ? saveSelectionFromTab(services, target, {}, selectionSource(info))
+          : savePageFromTab(services, target),
+      );
+    })();
   });
 
   browser.commands.onCommand.addListener((command, tab) => {
@@ -92,6 +94,20 @@ function toBrowserTab(tab: Browser.tabs.Tab | undefined, pageUrl?: string): Brow
 async function activeTab(services: AppServices): Promise<BrowserTab | undefined> {
   const result = await services.tabs.getActiveTab();
   return result.ok ? result.value : undefined;
+}
+
+// In older Chrome versions (Chrome 120 does this, Chrome 153 does not), a click in the
+// PDF viewer reports the viewer instead of the tab: no tab ID, and the viewer's own
+// address. The PDF's address is the clicked frame's, and its tab is the active one.
+async function pdfViewerTab(
+  services: AppServices,
+  info: Browser.contextMenus.OnClickData,
+  tab: Browser.tabs.Tab | undefined,
+): Promise<BrowserTab | undefined> {
+  if (info.frameUrl === undefined) return undefined;
+  const active = await activeTab(services);
+  if (!active) return undefined;
+  return { id: active.id, url: info.frameUrl, title: tab?.title ?? active.title };
 }
 
 function selectionSource(info: Browser.contextMenus.OnClickData): SelectionSource {

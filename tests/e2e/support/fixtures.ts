@@ -6,17 +6,30 @@ import { test as base } from '@playwright/test';
 import { launchChrome } from './chrome';
 import { launchFirefox } from './firefox';
 import { startTestSite, type TestSite } from './test-site';
-import type { BuiltManifest, InstalledExtension, LaunchedExtension } from './types';
+import { startVirtualDisplay, type VirtualDisplay } from './virtual-display';
+import type { BuiltManifest, ColorScheme, InstalledExtension, LaunchedExtension } from './types';
 
 export type { ExtensionPage, InstalledExtension, LaunchedExtension } from './types';
 
 type Fixtures = {
   manifest: BuiltManifest;
+  /** The built extension for this browser, in .output. */
+  extensionDir: string;
   /**
-   * Starts the browser with the extension installed. Every call within one test uses
-   * the same browser profile, so `close()` and launching again simulates a restart.
+   * Starts the browser with the extension installed, from `extensionDir` unless another
+   * folder is given, optionally in a light or dark colour scheme. Every call within one
+   * test uses the same browser profile, so `close()` and launching again simulates a
+   * restart.
    */
-  launchExtension: () => Promise<LaunchedExtension>;
+  launchExtension: (options?: {
+    extensionDir?: string;
+    colorScheme?: ColorScheme;
+    /**
+     * Shows the browser on a virtual display, so `extension.desktop` can send real
+     * input. Relaunches within the test reuse the same display.
+     */
+    desktop?: boolean;
+  }) => Promise<LaunchedExtension>;
   /** The extension in a fresh browser profile. */
   extension: InstalledExtension;
   /** A local website with pages to save. */
@@ -33,13 +46,35 @@ export const test = base.extend<Fixtures>({
     await use(readBuiltManifest(outputDirFor(browserName)));
   },
 
-  launchExtension: async ({ browserName, channel, headless, manifest }, use) => {
+  extensionDir: async ({ browserName }, use) => {
+    await use(outputDirFor(browserName));
+  },
+
+  launchExtension: async (
+    { browserName, channel, extensionDir, headless, launchOptions, manifest },
+    use,
+  ) => {
     const profileDir = createProfileDir(browserName);
-    const extensionDir = outputDirFor(browserName);
     const open = new Set<LaunchedExtension>();
+    let display: VirtualDisplay | undefined;
     try {
-      await use(async () => {
-        const options = { extensionDir, profileDir, channel, headless };
+      await use(async ({ extensionDir: folder = extensionDir, colorScheme, desktop } = {}) => {
+        const { executablePath } = launchOptions;
+        if (desktop) {
+          // Kept with the profile, where snap Firefox can read the display's cookie.
+          const displayDir = join(profileDir, 'recall-display');
+          mkdirSync(displayDir, { recursive: true });
+          display ??= await startVirtualDisplay(displayDir);
+        }
+        const options = {
+          extensionDir: folder,
+          profileDir,
+          channel,
+          executablePath,
+          headless,
+          colorScheme,
+          display: desktop ? display : undefined,
+        };
         const launched =
           browserName === 'firefox'
             ? await launchFirefox({ ...options, addonId: requireGeckoId(manifest) })
@@ -55,8 +90,9 @@ export const test = base.extend<Fixtures>({
         return tracked;
       });
     } finally {
-      // Close browsers before deleting the profile they are using.
+      // Close browsers before their display and the profile they are using.
       for (const launched of [...open]) await launched.close();
+      await display?.close();
       await removeProfileDir(profileDir);
     }
   },
