@@ -98,13 +98,17 @@ function buildPdf(): Buffer {
 export type TestSite = {
   /** Absolute URL of a page on the site, such as `url('/article.html')`. */
   url: (path: string) => string;
+  /** The paths of every request the site has received, in order. */
+  requests: () => string[];
   close: () => Promise<void>;
 };
 
 export async function startTestSite(): Promise<TestSite> {
   const pdf = buildPdf();
+  const requests: string[] = [];
   const server = http.createServer((request, response) => {
     const path = new URL(request.url ?? '/', 'http://localhost').pathname;
+    requests.push(path);
     if (path === '/paper.pdf') {
       response.writeHead(200, { 'content-type': 'application/pdf' });
       response.end(pdf);
@@ -126,6 +130,7 @@ export async function startTestSite(): Promise<TestSite> {
   const origin = `http://127.0.0.1:${String(address.port)}`;
   return {
     url: (path) => `${origin}${path}`,
+    requests: () => [...requests],
     close: () =>
       new Promise((resolve) => {
         server.closeAllConnections();

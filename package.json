@@ -15,6 +15,7 @@
     "build:firefox": "wxt build -b firefox",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
+    "zip:verify": "bash scripts/verify-sources-zip.sh",
     "postinstall": "wxt prepare",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

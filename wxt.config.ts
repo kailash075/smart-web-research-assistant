@@ -2,6 +2,19 @@ import { defineConfig } from 'wxt';
 
 const FIREFOX_ADDON_ID = 'recall@kailash075.github.io';
 
+// Recall's own pages (popup, library, background) may load only the extension's files,
+// and may not send network requests at all (`connect-src 'none'`), so the browser itself
+// enforces that saved research never leaves the device. Only for production builds:
+// dev mode loads code from WXT's local dev server.
+const EXTENSION_PAGES_CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "object-src 'none'",
+  "connect-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+].join('; ');
+
 // See https://wxt.dev/api/config.html
 export default defineConfig({
   srcDir: 'src',
@@ -10,7 +23,7 @@ export default defineConfig({
   imports: false,
   // WXT defaults Firefox to MV2; we target MV3 in both browsers.
   manifestVersion: 3,
-  manifest: ({ browser }) => ({
+  manifest: ({ browser, command }) => ({
     name: 'Recall',
     description: 'Save, organize, and search what you find on the web. Local-first and private.',
     // Each permission is explained in the README. None shows an install warning.
@@ -19,6 +32,9 @@ export default defineConfig({
     // scripting: read the selected text in that tab (allowed by activeTab).
     // contextMenus: the "Save page/selection to Recall" right-click items.
     permissions: ['storage', 'activeTab', 'scripting', 'contextMenus'],
+    ...(command === 'build' && {
+      content_security_policy: { extension_pages: EXTENSION_PAGES_CSP },
+    }),
     // Users can change these in chrome://extensions/shortcuts or Firefox's
     // "Manage Extension Shortcuts". Using one also grants activeTab. The letters avoid
     // keys that would never reach Recall:
@@ -58,6 +74,11 @@ export default defineConfig({
         }
       : { minimum_chrome_version: '120' }),
   }),
+  vite: () => ({
+    // Browsers Recall supports preload modules themselves. Vite's polyfill for older
+    // ones is the only `fetch()` call in the bundle, which reviewers would ask about.
+    build: { modulePreload: { polyfill: false } },
+  }),
   zip: {
     // The sources zip that Firefox Add-ons reviewers rebuild the extension from. Only
     // what the build needs, so local files (test results, notes) never end up in it.
@@ -69,6 +90,7 @@ export default defineConfig({
       'tsconfig.json',
       'wxt.config.ts',
       'README.md',
+      'PRIVACY.md',
     ],
   },
 });

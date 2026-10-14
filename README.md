@@ -4,7 +4,23 @@ Save, organize, and search what you find on the web. Works offline, stores every
 
 Recall is a cross-browser (Chrome and Firefox, Manifest V3) extension built with [WXT](https://wxt.dev), React, and TypeScript.
 
-> Status: early development. A complete user guide and privacy policy will be added before the first release.
+> Status: version 0.1.0, not yet published in the Chrome Web Store or on Firefox Add-ons. To use it now, build it and load it yourself ([Install](#install)).
+
+- **Private by design.** Everything you save stays in your browser on this device. No account, no servers, no analytics, and the browser blocks Recall from sending anything ([Privacy](#privacy)).
+- **Save in one step** from the toolbar button, the right-click menu, or a keyboard shortcut: whole pages, or the text you selected.
+- **Find it again** in a searchable library with notes, tags, and filters, and back it up to a file.
+
+## Install
+
+Recall is not in the browser stores yet. To install it from this repository (Node.js 22.13+ and pnpm 11, see [Requirements](#requirements)):
+
+```bash
+pnpm install
+pnpm build           # Chrome: .output/chrome-mv3
+pnpm build:firefox   # Firefox: .output/firefox-mv3
+```
+
+Then load the folder as described in [Loading the extension manually](#loading-the-extension-manually). In Firefox, an extension loaded that way stays only until Firefox restarts; a permanent install needs a version signed by Firefox Add-ons.
 
 ## Using Recall
 
@@ -51,7 +67,17 @@ Everything is written in one storage operation, so a failed import changes nothi
 
 Chrome limits local extension storage to about 10 MB (several thousand items with notes and highlights). If an import does not fit, Recall reports that storage is full and writes nothing. Firefox has no such fixed limit.
 
-Recall cannot save browser pages (settings, new tab, extension pages), add-on stores, or local files. PDFs in the browser's built-in viewer do not let extensions read the selection from the popup; right-click the selection and choose **Save selection to Recall** instead, which works because the browser passes the selected text to Recall directly (tested in Firefox; check Chrome by hand).
+Recall cannot save browser pages (settings, new tab, extension pages), add-on stores, or local files. PDFs in the browser's built-in viewer do not let extensions read the selection from the popup; right-click the selection and choose **Save selection to Recall** instead, which works because the browser passes the selected text to Recall directly (tested in both browsers).
+
+## Privacy
+
+Recall's full [privacy policy](PRIVACY.md) is short. In brief:
+
+- **Stored on this device only.** Saved pages and highlights (address, title, selected text, your note and tags, dates) live in the browser's local extension storage. The browser does not sync it.
+- **Read only when you act.** Recall sees a tab's address, title, and selection only right after you use its button, menu item, or shortcut. It never reads password fields, other tabs, or your history.
+- **Never sent anywhere.** Recall has no servers, analytics, telemetry, or ads. Its manifest sets a content security policy for its own pages (`default-src 'self'; connect-src 'none'`, production builds only), so the browser refuses any network request from them. `privacy.spec.ts` checks that requests from Recall's pages never arrive, while the same requests from a web page do.
+- **Yours to keep or delete.** Export everything to a file, delete items in the library, or uninstall Recall, which deletes its storage.
+- **No secrets in the extension.** Recall contains no API keys or credentials. Future features that need a server (see [Roadmap](#roadmap)) must go through a properly secured backend, be opt-in, and update the privacy policy first.
 
 ## Permissions
 
@@ -120,6 +146,7 @@ pnpm install
 | `pnpm build:firefox`   | Production build for Firefox (`.output/firefox-mv3`)                        |
 | `pnpm zip`             | Store-ready zip for Chrome                                                  |
 | `pnpm zip:firefox`     | Store-ready zip for Firefox, plus the sources zip reviewers rebuild it from |
+| `pnpm zip:verify`      | Rebuilds from the sources zip and checks it matches `.output/firefox-mv3`   |
 | `pnpm typecheck`       | TypeScript check                                                            |
 | `pnpm lint`            | ESLint                                                                      |
 | `pnpm lint:firefox`    | Mozilla's add-on linter on the Firefox production build                     |
@@ -130,13 +157,36 @@ pnpm install
 | `pnpm test:e2e:oldest` | Builds both targets, then browser tests in Chrome 120 and Firefox 140       |
 | `pnpm check`           | Typecheck, lint, format, unit tests, builds, Firefox lint                   |
 
-The sources zip holds only what the build needs (`zip.includeSources` in `wxt.config.ts`), so local files such as test results never end up in it. Rebuilding from it gives a Firefox build identical to `.output/firefox-mv3`.
+The sources zip holds only what the build needs (`zip.includeSources` in `wxt.config.ts`), so local files such as test results never end up in it. `pnpm zip:verify` checks that rebuilding from it gives a Firefox build identical to `.output/firefox-mv3`.
 
 `pnpm lint:firefox` reports no errors and 5 warnings, all expected:
 
 - `KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION`: Recall is desktop only (see [Browser support](#browser-support)).
 - 2 × `DANGEROUS_EVAL`, in Zod: its optional compiled validators. Recall turns them off (`jitless` in `src/schemas/zod.ts`), and the Manifest V3 content security policy would block them anyway.
 - 2 × `UNSAFE_VAR_ASSIGNMENT`, in React DOM: its own internal `innerHTML` use. Recall never sets HTML from data.
+
+## Build from source (Firefox Add-ons reviewers)
+
+The Firefox package is built with [WXT](https://wxt.dev) and Vite, which bundle and minify the code, so the readable source is submitted alongside it as `recall-<version>-sources.zip`. To rebuild the package from that zip:
+
+1. Install **Node.js 22.13 or newer** and **pnpm 11**. `package.json` names pnpm 11.20.0 in `packageManager`, so `corepack enable` provides that exact version. Verified on Ubuntu 24.04 x86-64 with Node.js 22.23.2 and pnpm 11.20.0.
+2. Unzip the sources and, in that folder, run:
+
+   ```bash
+   pnpm install --frozen-lockfile
+   pnpm build:firefox
+   ```
+
+3. The extension is in `.output/firefox-mv3`. Its files are identical to those in `recall-<version>-firefox.zip`.
+
+No other tools or network services are needed beyond downloading the npm packages listed in `pnpm-lock.yaml`. Third-party code in the bundle comes from npm packages, mainly React, React DOM, Zod, and WXT's small wrapper around the browser API; see [Commands](#commands) for the linter warnings it causes and why they are safe.
+
+## Releasing
+
+Releases are prepared by hand and never published automatically.
+
+- [Release checklist](docs/release-checklist.md): every step from version number to store submission, with the commands to run.
+- [Publishing to the stores](docs/publishing.md): what to upload to the Chrome Web Store and Firefox Add-ons, and ready-to-paste text for the listing, permission justifications, privacy answers, and reviewer notes.
 
 ## End-to-end tests
 
@@ -176,6 +226,8 @@ The storage tests include a restart check: the test saves a record, closes the b
 - Firefox: after the background is stopped, a shortcut and a right-click menu item wake it and save.
 - An update (a copy of the build with a higher version, reloaded) keeps the library, the right-click items, and the shortcuts.
 - An update from a build with the earlier shortcuts (`Alt+Shift+R`, `S`, `H`) assigns the current ones. Chrome 120 keeps the earlier key for opening Recall; Chrome 153 and Firefox move all three. Recall was never published with the earlier keys.
+
+`privacy.spec.ts` checks that Recall's popup and library cannot send a request (`fetch`, a beacon, or an image) to the local test site, while a web page can.
 
 `appearance.spec.ts` opens the popup and the library in the light and dark colour schemes, checks that they follow the scheme and do not scroll sideways, and saves screenshots in `test-results/` to look over.
 
@@ -273,6 +325,14 @@ export default defineWebExtConfig({
 ```
 
 Create the folder once with `mkdir -p ~/snap/firefox/common/recall-dev-profile`. When you stop dev mode with Ctrl+C, web-ext cannot close a snap Firefox (`kill EACCES`), so close that Firefox window yourself.
+
+## Roadmap
+
+Planned as future premium features, and not part of this version: AI summaries, semantic search, cloud sync, accounts, and billing. They would plug in as new implementations of the application interfaces (see [Architecture](#architecture)). Anything that needs a server will use a properly secured backend that holds its own keys, never keys or secrets shipped inside the extension, and will be opt-in.
+
+## License
+
+No license has been chosen yet, so all rights are reserved by default. Choose one before publishing (see the [release checklist](docs/release-checklist.md)).
 
 ## Inspecting errors
 

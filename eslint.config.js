@@ -14,6 +14,7 @@ export default defineConfig(
       'test-results/**',
       'playwright-report/**',
       'blob-report/**',
+      'graphify-out/**',
     ],
   },
   js.configs.recommended,
