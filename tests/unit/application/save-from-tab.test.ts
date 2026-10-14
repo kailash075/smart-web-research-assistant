@@ -43,6 +43,14 @@ describe('pageFromTab', () => {
     if (!result.ok) expect(result.error.message).toContain("Recall can't save this page");
   });
 
+  it('saves the article behind a Firefox Reader View page', () => {
+    const url = `about:reader?url=${encodeURIComponent('https://example.com/article?page=2')}`;
+    expect(pageFromTab(articleTab({ url }))).toEqual({
+      ok: true,
+      value: { url: 'https://example.com/article?page=2', title: 'An article' },
+    });
+  });
+
   it('rejects pages that are not http or https', () => {
     expect(pageFromTab(articleTab({ url: 'file:///home/me/notes.txt' }))).toEqual({
       ok: false,

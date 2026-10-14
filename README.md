@@ -22,6 +22,32 @@ Recall is a cross-browser (Chrome and Firefox, Manifest V3) extension built with
   Right-click and shortcut saves show their result on the toolbar button for 4 seconds: a green ✓ for saved, a grey ✓ for already saved, a red ! for a problem. Hover the button to read the message.
 
 - **Library:** **Open library** in the popup opens a page listing everything you saved. Search titles, addresses, highlights, notes, and tags (every word must match; case and accents are ignored). Filter by tag or website, sort newest or oldest first, click a tag to filter by it, edit notes and tags, and delete items (Recall asks before deleting).
+- **Show in library:** after saving, or on a page you saved before, **Show in library** in the popup opens the library scrolled to that item.
+- **Tag suggestions:** the popup and the library's editor offer your most-used tags as one-click buttons.
+- **Keyboard:** in the library, press `/` to jump to the search box and `Escape` to clear it. `Escape` also closes the note and tag editor without saving. After closing the editor or cancelling a delete, focus returns to the button you used.
+- **Firefox Reader View:** saving a page shown in Reader View saves the article's real address, not the `about:reader` one.
+
+### Import and export
+
+**Export** (top of the library) downloads every readable item as `recall-export-YYYY-MM-DD.json`. It is a plain JSON file you can keep as a backup or move to another browser:
+
+```json
+{ "format": "recall-export", "version": 1, "exportedAt": "2026-10-13T09:00:00.000Z", "items": [ … ] }
+```
+
+Each item has the same fields as in storage (see [Stored data](#stored-data)). Export uses a normal download link, so it needs no `downloads` permission.
+
+**Import…** reads such a file. Nothing is written until you confirm, and the preview shows what will happen:
+
+- **New items** are added. If an item's id is already used by a different item, it gets a new id.
+- **Already saved, unchanged** (same page address, or same highlight text on the same page, with the same title, note, and tags) are skipped.
+- **Already saved, but different** are conflicts. By default Recall **keeps the version in your library**. Choosing **Replace it with the version from the file** overwrites the saved title, note, and tags of those items; the saved item keeps its id.
+- **Repeated in the file:** only the first copy is used.
+- **Entries that cannot be read** (missing fields, unsafe addresses such as `javascript:`, and so on) are skipped, and the preview lists why for the first five.
+
+Everything is written in one storage operation, so a failed import changes nothing. Recall refuses, with a message and without changing anything, files that are not JSON, JSON that is not a Recall export, files from a newer version of Recall, damaged files, files over 25 MB, and files with more than 50,000 items.
+
+Chrome limits local extension storage to about 10 MB (several thousand items with notes and highlights). If an import does not fit, Recall reports that storage is full and writes nothing. Firefox has no such fixed limit.
 
 Recall cannot save browser pages (settings, new tab, extension pages), add-on stores, or local files. PDFs in the browser's built-in viewer do not let extensions read the selection from the popup; right-click the selection and choose **Save selection to Recall** instead, which works because the browser passes the selected text to Recall directly (tested in Firefox; check Chrome by hand).
 
@@ -74,17 +100,37 @@ pnpm install
 `pnpm test:e2e` builds both targets and runs [Playwright](https://playwright.dev) tests against the browsers installed on this machine, headless. Add `--headed` to watch them, or `--project chrome` / `--project firefox` to run one browser.
 
 - **Chrome** uses your installed Google Chrome. Chrome 137+ ignores `--load-extension`, so the tests install the build through the DevTools protocol (`Extensions.loadUnpacked`), the same way web-ext does.
-- **Firefox** uses your installed Firefox through Playwright's experimental `moz-firefox` channel (WebDriver BiDi). WebDriver cannot install extensions or read `moz-extension://` pages, so the tests use Firefox's remote debugging protocol for those steps (`tests/e2e/support/firefox-remote.ts`). Firefox tests therefore check page content by running code inside the page rather than by clicking and typing. On Ubuntu's snap Firefox, test profiles are created in `~/snap/firefox/common/recall-e2e-profiles/` and deleted afterwards.
+- **Firefox** uses your installed Firefox through Playwright's experimental `moz-firefox` channel (WebDriver BiDi). WebDriver cannot install extensions or script, click, or type in `moz-extension://` pages, so the tests use Firefox's remote debugging protocol for those steps (`tests/e2e/support/firefox-remote.ts`). On Ubuntu's snap Firefox, test profiles are created in `~/snap/firefox/common/recall-e2e-profiles/` and deleted afterwards.
 
 The tests save real pages from a small local website (`tests/e2e/support/test-site.ts`), including a PDF, so they need no network. The toolbar button is clicked the way a user would click it, so the browser grants `activeTab` and opens the real popup: Chrome through `Extensions.triggerAction`, Firefox through its browser process. In Firefox the tests also press Recall's keyboard shortcuts and choose its right-click menu items. Pages Recall cannot save (browser pages, local files) and the PDF viewer are covered in `special-pages.spec.ts`.
 
 Chrome's DevTools protocol cannot open native context menus or press extension shortcuts, so in Chrome those paths are checked by hand (see [Manual checks](#manual-checks)). They run the same application code as the popup, which the Chrome tests do cover.
 
+Most tests read and change extension pages by running code inside them (`tests/e2e/support/dom.ts`). Tests that check what a person does with the mouse and keyboard use real input instead (`page.user` in `tests/e2e/support/types.ts`): trusted events that go through the browser and can open its file chooser.
+
+- **Chrome:** Playwright's mouse and keyboard, and its file chooser handling.
+- **Firefox:** native mouse events and `nsITextInputProcessor` keys sent from the browser process. A stand-in for Firefox's file picker component picks the test file when the page opens the chooser, and the test fails if the chooser never opens.
+
+Import and export are covered in `backup.spec.ts`:
+
+- Export clicked with the mouse saves a real download, and the browser's own download list records it as finished (`chrome://downloads`, or Firefox's Library).
+- **Import…** clicked with the mouse opens the file chooser and restores deleted items.
+- An older backup keeps newer edits by default, and replaces them only when **Replace** is chosen.
+- Also covered: refused files, and the duplicate and conflict counts.
+
+`usability.spec.ts` covers:
+
+- `/`, typing, `Escape` and `Backspace` with real keys.
+- Focus after editing and deleting.
+- Tag suggestions.
+- **Show in library**: the library scrolls to an older item, outlines it in the accent colour, and focuses it.
+- Reader View (Firefox only).
+
 The storage tests include a restart check: the test saves a record, closes the browser completely, starts it again on the same profile, and confirms the popup still reads the record.
 
 ### Manual checks
 
-Run these in **Chrome** before a release; Firefox runs them automatically. Also look at the toolbar badge in both browsers, since the tests read its text and tooltip but cannot see it.
+Run these in **Chrome** before a release; Firefox runs them automatically. Chrome ignores extension shortcuts sent through its DevTools protocol, and the protocol cannot open native context menus, so Playwright cannot do these in Chrome. Also look at the toolbar badge in both browsers, since the tests read its text and tooltip but cannot see it.
 
 1. Right-click a web page: **Save page to Recall** appears, saves the page, and the toolbar button shows a green ✓ with the tooltip "Recall: Page saved." Doing it again shows a grey ✓ and "Page was already saved."
 2. Select text, right-click it: only **Save selection to Recall** appears, and it saves a highlight.
@@ -97,16 +143,16 @@ Run these in **Chrome** before a release; Firefox runs them automatically. Also 
 
 Code is split into layers. Each layer may only import from the layers listed before it, and ESLint (`no-restricted-imports`) fails the build if that rule is broken.
 
-| Folder               | Contains                                                                                                |
-| -------------------- | ------------------------------------------------------------------------------------------------------- |
-| `src/shared`         | Small helpers with no app knowledge (`Result`)                                                          |
-| `src/domain`         | Research item types and pure rules: validation, URLs, tags, duplicates, search                          |
-| `src/schemas`        | Zod schemas that check data coming from storage or imported files                                       |
-| `src/application`    | Use cases (save, edit, delete) and the interfaces they need (`ResearchRepository`, `TabsPort`, `Clock`) |
-| `src/infrastructure` | Browser-specific implementations: the `browser.storage` repository and tab/selection access             |
-| `src/composition`    | Builds the real implementations and hands them to the UI                                                |
-| `src/ui`             | React context, hooks, and components                                                                    |
-| `src/entrypoints`    | WXT entry points (popup, library page, background) that wire everything together                        |
+| Folder               | Contains                                                                                              |
+| -------------------- | ----------------------------------------------------------------------------------------------------- |
+| `src/shared`         | Small helpers with no app knowledge (`Result`)                                                        |
+| `src/domain`         | Research item types and pure rules: validation, URLs, tags, duplicates, search, import merging        |
+| `src/schemas`        | Zod schemas that check data coming from storage or imported files                                     |
+| `src/application`    | Use cases (save, edit, delete, import, export) and the interfaces they need (`ResearchRepository`, …) |
+| `src/infrastructure` | Browser-specific implementations: the `browser.storage` repository and tab/selection access           |
+| `src/composition`    | Builds the real implementations and hands them to the UI                                              |
+| `src/ui`             | React context, hooks, and components                                                                  |
+| `src/entrypoints`    | WXT entry points (popup, library page, background) that wire everything together                      |
 
 React code never touches `browser.storage` directly (also enforced by ESLint); it calls use cases through `useAppServices()`. Future cloud sync or AI features plug in as new implementations of application interfaces, without changing the domain.
 

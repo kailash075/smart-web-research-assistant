@@ -18,7 +18,7 @@ export type FirefoxDebugger = {
 export type ExtensionDebugSession = {
   /** Console actor of the extension's background page. */
   backgroundConsole: string;
-  /** Resolves with the console actor of the next extension page whose URL ends with `suffix`. */
+  /** Console actor of the next extension page whose address (without query) ends with `suffix`. */
   waitForPage: (suffix: string) => Promise<string>;
   /** Errors logged or thrown by any of the extension's pages so far. */
   errors: string[];
@@ -101,7 +101,8 @@ export async function debugExtension(
           reject(new Error(`No extension page ending with ${suffix} appeared`));
         }, DEFAULT_TIMEOUT_MS);
         const listener = (page: Packet) => {
-          if (!String(page['url']).endsWith(suffix)) return;
+          // Ignores the query string, as in library.html?item=…
+          if (!String(page['url']).split(/[?#]/)[0]?.endsWith(suffix)) return;
           clearTimeout(timer);
           resolve(stringField(page, 'consoleActor'));
         };

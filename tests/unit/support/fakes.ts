@@ -15,7 +15,7 @@ export type MemoryRepository = {
   repository: ResearchRepository;
   /** The stored items, by id. */
   items: Map<string, ResearchItem>;
-  /** Number of successful `save` calls. */
+  /** Number of successful `save` and `saveMany` calls. */
   saveCount: () => number;
   /** Makes every later call fail with `error` (or succeed again with `undefined`). */
   failWith: (error: StorageError | undefined) => void;
@@ -46,6 +46,12 @@ export function createMemoryRepository(initial: readonly ResearchItem[] = []): M
       save: (item) =>
         run(() => {
           items.set(item.id, item);
+          saves += 1;
+          notify();
+        }),
+      saveMany: (newItems) =>
+        run(() => {
+          for (const item of newItems) items.set(item.id, item);
           saves += 1;
           notify();
         }),

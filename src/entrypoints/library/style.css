@@ -137,21 +137,6 @@ kbd {
   list-style: none;
 }
 
-.tag {
-  padding: 1px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.tag:hover {
-  border-color: var(--color-accent);
-}
-
 .item__actions {
   display: flex;
   flex-wrap: wrap;
@@ -161,5 +146,100 @@ kbd {
 
 .item__editor {
   display: grid;
+  gap: 8px;
+}
+
+.library__backup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Stays in the page (live regions must exist before their message) without adding a gap. */
+.library__notice:empty {
+  position: absolute;
+}
+
+.library__notice:focus {
+  outline: none;
+}
+
+.library__notice .message {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.library__notice .button--quiet {
+  padding: 2px 8px;
+  color: inherit;
+  text-decoration: underline;
+}
+
+.item--target {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.item article:focus {
+  outline: none;
+}
+
+.import-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.import-panel__title {
+  margin: 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.import-panel__summary {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.import-panel__summary details {
+  margin-top: 4px;
+  color: var(--color-muted);
+}
+
+.import-panel__summary summary {
+  cursor: pointer;
+}
+
+.import-panel__policy {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.import-panel__policy label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.import-panel__policy legend {
+  padding: 0 4px;
+  font-weight: 600;
+}
+
+.import-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }

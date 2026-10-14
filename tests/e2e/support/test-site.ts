@@ -14,6 +14,15 @@ const PAGES: Record<string, { title: string; body: string }> = {
       <textarea id="draft">Draft text inside a text field</textarea>
       <input id="secret" type="password" value="not-a-real-password">`,
   },
+  // Long enough for Firefox Reader View to extract it.
+  '/reader.html': {
+    title: 'A long read',
+    body: `<article><h1>A long read</h1>${Array.from(
+      { length: 8 },
+      (_, index) =>
+        `<p>Paragraph ${String(index + 1)}. Reader View shows the main text of an article without menus, adverts, or sidebars, so it needs a page with several paragraphs of real prose before it agrees to open.</p>`,
+    ).join('')}</article>`,
+  },
   '/other.html': {
     title: 'Another page',
     body: '<h1>Another page</h1><p id="intro">Nothing to see here.</p>',

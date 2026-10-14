@@ -43,6 +43,59 @@ export function clickButton(page: ExtensionPage, label: string, within = 'body')
   );
 }
 
+/**
+ * A selector for the enabled button whose text is `label`, inside the first `within`
+ * match, for real input (`page.user.click`). The button is marked with an attribute.
+ */
+export function buttonSelector(
+  page: ExtensionPage,
+  label: string,
+  within = 'body',
+): Promise<string> {
+  return page.evaluate(
+    ([label, within]) => {
+      const buttons = [...(document.querySelector(within)?.querySelectorAll('button') ?? [])];
+      const button = buttons.find((candidate) => candidate.textContent.trim() === label);
+      if (!button) throw new Error(`No button "${label}" in ${within}`);
+      if (button.disabled) throw new Error(`Button "${label}" is disabled`);
+      const mark = String(Date.now() + Math.random());
+      button.setAttribute('data-e2e-button', mark);
+      return `[data-e2e-button="${mark}"]`;
+    },
+    [label, within] as const,
+  );
+}
+
+/** A selector for the library card titled `title`. The card is marked with an attribute. */
+export function cardSelector(page: ExtensionPage, title: string): Promise<string> {
+  return page.evaluate((title) => {
+    const card = [...document.querySelectorAll('[data-testid="library-item"]')].find(
+      (candidate) => candidate.querySelector('[data-testid="item-title"]')?.textContent === title,
+    );
+    if (!card) throw new Error(`No library card titled "${title}"`);
+    const mark = String(Date.now() + Math.random());
+    card.setAttribute('data-e2e-card', mark);
+    return `[data-e2e-card="${mark}"]`;
+  }, title);
+}
+
+/**
+ * Like `clickButton`, for a button that closes the page it is on (such as the popup's
+ * "Show in library"). The click waits half a second, so the test has read this call's
+ * result (Firefox tests poll for it) before the page goes away.
+ */
+export function clickButtonThatCloses(page: ExtensionPage, label: string): Promise<void> {
+  return page.evaluate((label) => {
+    const button = [...document.querySelectorAll('button')].find(
+      (candidate) => candidate.textContent.trim() === label,
+    );
+    if (!button || button.disabled) throw new Error(`No enabled button "${label}"`);
+    setTimeout(() => {
+      button.click();
+    }, 500);
+  }, label);
+}
+
 /** The trimmed text of the first element matching `selector`, or null if there is none. */
 export function textOf(page: ExtensionPage, selector: string): Promise<string | null> {
   return page.evaluate(
@@ -122,5 +175,48 @@ export function selectInField(
 export function clearSelection(page: Page): Promise<void> {
   return page.evaluate(() => {
     window.getSelection()?.removeAllRanges();
+  });
+}
+
+/** Chooses a file in a file input, as picking it in the file dialog would. */
+export function chooseFile(
+  page: ExtensionPage,
+  selector: string,
+  file: { name: string; text: string },
+): Promise<void> {
+  return page.evaluate(
+    ([selector, name, text]) => {
+      const input = document.querySelector(selector);
+      if (!(input instanceof HTMLInputElement) || input.type !== 'file') {
+        throw new Error(`No file input matches ${selector}`);
+      }
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([text], name, { type: 'application/json' }));
+      input.files = transfer.files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+    [selector, file.name, file.text] as const,
+  );
+}
+
+/** Clicks the first element matching `selector` (for example a radio button). */
+export function click(page: ExtensionPage, selector: string): Promise<void> {
+  return page.evaluate((selector) => {
+    const element = document.querySelector(selector);
+    if (!(element instanceof HTMLElement)) throw new Error(`Nothing matches ${selector}`);
+    element.click();
+  }, selector);
+}
+
+/** Describes the focused element, for example `button: Delete` or `input[name=search]`. */
+export function focused(page: ExtensionPage): Promise<string> {
+  return page.evaluate(() => {
+    const element = document.activeElement;
+    if (!element || element === document.body) return 'body';
+    const name = element.getAttribute('name');
+    if (name !== null) return `${element.tagName.toLowerCase()}[name=${name}]`;
+    const testId = element.closest('[data-testid]')?.getAttribute('data-testid');
+    const label = element.textContent.trim().slice(0, 40);
+    return `${element.tagName.toLowerCase()}${testId ? ` in ${testId}` : ''}: ${label}`;
   });
 }

@@ -58,3 +58,9 @@
 .popup__meta dd {
   margin: 0;
 }
+
+[data-testid='show-in-library'] {
+  justify-self: start;
+  padding: 2px 0;
+  text-decoration: underline;
+}

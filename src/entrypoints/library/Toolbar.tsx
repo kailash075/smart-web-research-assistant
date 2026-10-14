@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import {
   isFiltered,
   type FacetCount,
@@ -8,11 +9,12 @@ import {
 type ToolbarProps = {
   query: LibraryQuery;
   facets: LibraryFacets;
+  searchRef: RefObject<HTMLInputElement | null>;
   onChange: (query: LibraryQuery) => void;
   onClear: () => void;
 };
 
-export function Toolbar({ query, facets, onChange, onClear }: ToolbarProps) {
+export function Toolbar({ query, facets, searchRef, onChange, onClear }: ToolbarProps) {
   return (
     <form
       className="toolbar"
@@ -22,15 +24,26 @@ export function Toolbar({ query, facets, onChange, onClear }: ToolbarProps) {
       }}
     >
       <label className="field toolbar__search">
-        <span className="field__label">Search</span>
+        <span className="field__label">
+          Search <span aria-hidden="true">(press /)</span>
+        </span>
         <input
+          ref={searchRef}
           className="field__input"
           name="search"
           type="search"
           placeholder="Titles, addresses, highlights, notes, tags"
+          aria-keyshortcuts="/"
           value={query.text}
           onChange={(event) => {
             onChange({ ...query, text: event.target.value });
+          }}
+          onKeyDown={(event) => {
+            // Chrome clears search fields on Escape by itself; Firefox does not.
+            if (event.key === 'Escape' && query.text !== '') {
+              event.preventDefault();
+              onChange({ ...query, text: '' });
+            }
           }}
         />
       </label>

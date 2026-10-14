@@ -31,6 +31,7 @@ function repositoryReturning(result: Result<StoredItems, StorageError>): Researc
     list: () => Promise.resolve(result),
     get: unused,
     save: unused,
+    saveMany: unused,
     delete: unused,
     subscribe: () => () => undefined,
   };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ResearchRepository, StorageError } from '@/application/ports';
+import type { ResearchRepository } from '@/application/ports';
 import type { Result } from '@/shared/result';
 import { useAppServices } from '../app-services-context';
 
@@ -12,7 +12,7 @@ export type LoadState<T> =
  * identity between renders (a module-level function or `useCallback`).
  */
 export function useRepositoryData<T>(
-  load: (repository: ResearchRepository) => Promise<Result<T, StorageError>>,
+  load: (repository: ResearchRepository) => Promise<Result<T, { message: string }>>,
 ): LoadState<T> {
   const { repository } = useAppServices();
   const [state, setState] = useState<LoadState<T>>({ status: 'loading' });

@@ -1,56 +1,6 @@
 import { clickButton, fill, readLibrary, textOf } from './support/dom';
 import { expect, test, type ExtensionPage } from './support/fixtures';
-
-// The `chrome` namespace exists in both browsers' extension pages.
-declare const chrome: {
-  storage: { local: { set: (items: Record<string, unknown>) => Promise<void> } };
-};
-
-function storedItem(id: string, fields: Record<string, unknown>): Record<string, unknown> {
-  return {
-    [`item:${id}`]: {
-      id,
-      kind: 'page',
-      note: '',
-      tags: [],
-      updatedAt: fields['createdAt'],
-      ...fields,
-    },
-  };
-}
-
-const LIBRARY = {
-  ...storedItem('recipe', {
-    url: 'https://www.cooking.example/soup',
-    pageTitle: 'Café soup recipe',
-    tags: ['food'],
-    createdAt: '2026-10-01T08:00:00.000Z',
-  }),
-  ...storedItem('paper', {
-    url: 'https://arxiv.example/abs/1234',
-    pageTitle: 'Attention is all you need',
-    note: 'Transformer architecture, re-read section 3',
-    tags: ['ml', 'papers'],
-    createdAt: '2026-10-03T08:00:00.000Z',
-  }),
-  ...storedItem('quote', {
-    kind: 'highlight',
-    url: 'https://arxiv.example/abs/1234',
-    pageTitle: 'Attention is all you need',
-    text: 'The Transformer allows for significantly more parallelization.',
-    tags: ['ml'],
-    createdAt: '2026-10-02T08:00:00.000Z',
-  }),
-  ...storedItem('news', {
-    url: 'https://news.example/today',
-    pageTitle: 'Morning news',
-    createdAt: '2026-10-04T08:00:00.000Z',
-  }),
-};
-
-// Writes records in the stored format, as an older version or another window would.
-const seed = (page: ExtensionPage, items: Record<string, unknown>) =>
-  page.evaluate((items) => chrome.storage.local.set(items), items);
+import { LIBRARY, seed } from './support/library-data';
 
 const cardsOf = (page: ExtensionPage) => async () =>
   (await readLibrary(page)).map((card) => `${card.kind ?? ''}: ${card.title}`);

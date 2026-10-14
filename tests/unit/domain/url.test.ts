@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { comparableUrl, parseSaveableUrl, siteOf } from '@/domain/url';
+import { comparableUrl, originalPageUrl, parseSaveableUrl, siteOf } from '@/domain/url';
 
 describe('parseSaveableUrl', () => {
   it.each(['https://example.com/a?b=1#c', 'http://localhost:3000/', '  https://example.com  '])(
@@ -57,4 +57,18 @@ describe('siteOf', () => {
     expect(siteOf(new URL('https://www.example.com/a'))).toBe('example.com');
     expect(siteOf(new URL('https://docs.example.com/a'))).toBe('docs.example.com');
   });
+});
+
+describe('originalPageUrl', () => {
+  it('returns the article address behind a Firefox Reader View page', () => {
+    const article = 'https://example.com/news/story?id=7&lang=en';
+    expect(originalPageUrl(`about:reader?url=${encodeURIComponent(article)}`)).toBe(article);
+  });
+
+  it.each(['https://example.com/page', 'about:reader', 'about:reader?other=1', 'about:addons'])(
+    'leaves %j as it is',
+    (raw) => {
+      expect(originalPageUrl(raw)).toBe(raw);
+    },
+  );
 });

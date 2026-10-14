@@ -49,6 +49,16 @@ export function comparableUrl(url: URL): string {
   return copy.href;
 }
 
+/**
+ * The address of the page the user is reading. Firefox's Reader View shows articles
+ * at `about:reader?url=<address>`; this returns that inner address. Other addresses
+ * are returned unchanged.
+ */
+export function originalPageUrl(raw: string): string {
+  if (!raw.startsWith('about:reader?')) return raw;
+  return new URLSearchParams(raw.slice('about:reader?'.length)).get('url') ?? raw;
+}
+
 /** Display name of the website, e.g. `developer.mozilla.org` (without `www.`). */
 export function siteOf(url: URL): string {
   return url.hostname.replace(/^www\./, '');

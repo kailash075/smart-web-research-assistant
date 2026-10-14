@@ -73,14 +73,9 @@ export function createBrowserStorageResearchRepository(
         return item ? ok(item) : err(INVALID_STORED_ITEM);
       }),
 
-    save: (item) =>
-      run(async (storage) => {
-        // Never write data the app could not read back.
-        const checked = researchItemSchema.safeParse(item);
-        if (!checked.success) return err(INVALID_NEW_ITEM);
-        await storage.set({ [itemKey(item.id)]: checked.data });
-        return ok(undefined);
-      }),
+    save: (item) => run((storage) => writeItems(storage, [item])),
+
+    saveMany: (items) => run((storage) => writeItems(storage, items)),
 
     delete: (id) =>
       run(async (storage) => {
@@ -99,6 +94,22 @@ export function createBrowserStorageResearchRepository(
       };
     },
   };
+}
+
+// One storage.set call, so a failure (such as a full quota) writes nothing.
+async function writeItems(
+  storage: StorageAreaLike,
+  items: readonly ResearchItem[],
+): Promise<Result<void, StorageError>> {
+  const records: Record<string, ResearchItem> = {};
+  for (const item of items) {
+    // Never write data the app could not read back.
+    const checked = researchItemSchema.safeParse(item);
+    if (!checked.success) return err(INVALID_NEW_ITEM);
+    records[itemKey(item.id)] = checked.data;
+  }
+  if (items.length > 0) await storage.set(records);
+  return ok(undefined);
 }
 
 async function checkSchemaVersion(storage: StorageAreaLike): Promise<Result<void, StorageError>> {

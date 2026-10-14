@@ -59,6 +59,32 @@ describe('browser storage research repository', () => {
     expect(listed.ok && listed.value.items.map((item) => item.note)).toEqual(['second']);
   });
 
+  it('saves many items in one storage write', async () => {
+    const set = vi.spyOn(browser.storage.local, 'set');
+    const items = [makePage({ id: 'p1' }), makeHighlight({ id: 'h1' })];
+
+    expect(await repository.saveMany(items)).toEqual({ ok: true, value: undefined });
+
+    const writes = set.mock.calls.filter(([values]) => Object.keys(values).some(isItemKey));
+    expect(writes).toHaveLength(1);
+    const listed = await repository.list();
+    expect(listed.ok && listed.value.items).toEqual(expect.arrayContaining(items));
+  });
+
+  it('writes nothing from a batch that contains an invalid item', async () => {
+    const result = await repository.saveMany([
+      makePage({ id: 'p1' }),
+      makePage({ id: 'p2', url: 'javascript:alert(1)' }),
+    ]);
+
+    expect(result).toMatchObject({ ok: false, error: { kind: 'invalid_data' } });
+    expect(await repository.list()).toEqual({ ok: true, value: { items: [], skippedCount: 0 } });
+  });
+
+  it('accepts an empty batch', async () => {
+    expect(await repository.saveMany([])).toEqual({ ok: true, value: undefined });
+  });
+
   it('refuses to write an invalid item', async () => {
     const result = await repository.save(makePage({ url: 'javascript:alert(1)' }));
 
@@ -169,4 +195,8 @@ function failingArea(errors: { get?: Error; set?: Error }): StorageAreaLike {
     remove: () => Promise.resolve(),
     onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
   };
+}
+
+function isItemKey(key: string): boolean {
+  return key.startsWith('item:');
 }

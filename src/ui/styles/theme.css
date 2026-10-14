@@ -158,3 +158,35 @@ textarea.field__input {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+.tag {
+  padding: 1px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tag:hover {
+  border-color: var(--color-accent);
+}
+
+.tag-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* A label styled as a button, wrapping a visually hidden file input. */
+label.button {
+  position: relative;
+  display: inline-block;
+}
+
+label.button:has(input:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}

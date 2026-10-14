@@ -1,11 +1,15 @@
+import { readFileSync } from 'node:fs';
 import { chromium, type BrowserContext, type CDPSession, type Page } from '@playwright/test';
 import {
   callExpression,
+  unavailableInput,
   waitUntil,
+  type BrowserDownload,
   type ExtensionPage,
   type InstalledExtension,
   type LaunchedExtension,
   type LaunchOptions,
+  type UserInput,
 } from './types';
 
 type TargetInfo = { targetId: string; type: string; url: string };
@@ -43,18 +47,108 @@ export async function launchChrome({
       const page = await context.newPage();
       collectErrors(page, errors);
       await page.goto(`${origin}${path}`);
-      return {
-        evaluate: <T, A>(fn: (arg: A) => T | Promise<T>, arg?: A) =>
-          page.evaluate<T>(callExpression(fn, arg)),
-        errors: () => [...errors],
-        close: () => page.close(),
-      };
+      return extensionPage(page, errors);
+    },
+    nextPage: async (path) => {
+      const before = new Set(context.pages());
+      const address = `${origin}${path}`;
+      let page: Page | undefined;
+      await waitUntil(() => {
+        page = context
+          .pages()
+          .find((open) => !before.has(open) && open.url().split(/[?#]/)[0] === address);
+        return Promise.resolve(page !== undefined);
+      });
+      if (!page) throw new Error(`${address} did not open`);
+      collectErrors(page, errors);
+      await page.waitForLoadState('load');
+      return extensionPage(page, errors);
     },
     openWebPage: (url) => openWebPage(context, url),
     openPopup: (page) => openPopup(session, id, page, errors),
+    browserDownloads: () => browserDownloads(context),
     firefox: undefined,
   };
   return { extension, close: () => context.close() };
+}
+
+function extensionPage(page: Page, errors: string[]): ExtensionPage {
+  return {
+    evaluate: <T, A>(fn: (arg: A) => T | Promise<T>, arg?: A) =>
+      page.evaluate<T>(callExpression(fn, arg)),
+    errors: () => [...errors],
+    download: async (action) => {
+      const [download] = await Promise.all([page.waitForEvent('download'), action()]);
+      return {
+        filename: download.suggestedFilename(),
+        text: readFileSync(await download.path(), 'utf8'),
+      };
+    },
+    user: playwrightInput(page),
+    close: () => page.close(),
+  };
+}
+
+// Playwright's mouse and keyboard go through Chrome's input pipeline, and it answers
+// the file chooser that the page asks Chrome to open.
+function playwrightInput(page: Page): UserInput {
+  const click = async (selector: string) => {
+    await page.bringToFront();
+    await page.locator(selector).first().click();
+  };
+  return {
+    click,
+    press: async (key) => {
+      await page.bringToFront();
+      await page.keyboard.press(key);
+    },
+    type: async (text) => {
+      await page.bringToFront();
+      await page.keyboard.type(text);
+    },
+    chooseFile: async (selector, { name, text }) => {
+      const [chooser] = await Promise.all([
+        page.waitForEvent('filechooser', { timeout: 5_000 }),
+        click(selector),
+      ]);
+      await chooser.setFiles({ name, mimeType: 'application/json', buffer: Buffer.from(text) });
+    },
+  };
+}
+
+// Reads the list on chrome://downloads. Playwright saves downloads under random names,
+// so entries are identified by their address.
+async function browserDownloads(context: BrowserContext): Promise<BrowserDownload[]> {
+  const page = await context.newPage();
+  try {
+    await page.goto('chrome://downloads');
+    let downloads: BrowserDownload[] = [];
+    // The list fills in after the page loads.
+    await waitUntil(async () => {
+      downloads = await page.evaluate(() =>
+        [
+          ...(document
+            .querySelector('downloads-manager')
+            ?.shadowRoot?.querySelectorAll('downloads-item') ?? []),
+        ].map((item) => {
+          const data = (
+            item as unknown as { data?: { url?: string | { url?: string }; state?: number } }
+          ).data;
+          // Newer Chrome versions wrap the address in a { url } object.
+          const url = data?.url;
+          return {
+            url: typeof url === 'string' ? url : (url?.url ?? ''),
+            // downloads.mojom State.kComplete
+            complete: data?.state === 2,
+          };
+        }),
+      );
+      return downloads.length > 0;
+    }, 5_000).catch(() => undefined);
+    return downloads;
+  } finally {
+    await page.close();
+  }
 }
 
 async function openWebPage(context: BrowserContext, url: string): Promise<Page> {
@@ -157,6 +251,8 @@ async function attachToTarget(
       return outcome?.result?.value as T;
     },
     errors: () => [...errors],
+    download: () => Promise.reject(new Error('Tests cannot download from the popup')),
+    user: unavailableInput('the popup'),
     close: async () => {
       await session.send('Target.closeTarget', { targetId });
       await waitUntil(async () =>

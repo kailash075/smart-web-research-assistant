@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { browser } from 'wxt/browser';
 import type { LibrarySummary } from '@/application/get-library-summary';
 import type { AppError } from '@/application/errors';
@@ -11,18 +11,27 @@ import {
   type SaveExtras,
 } from '@/application/save-from-tab';
 import type { SaveOutcome } from '@/application/save-item';
+import { libraryFacets } from '@/domain/library-query';
+import type { ResearchItemId } from '@/domain/research-item';
 import { parseTagInput } from '@/domain/tags';
 import { siteOf } from '@/domain/url';
 import type { Result } from '@/shared/result';
 import { useAppServices } from '@/ui/app-services-context';
+import { TagSuggestions } from '@/ui/components/TagSuggestions';
 import { formatDate, plural } from '@/ui/format';
 import { useActiveTab } from '@/ui/hooks/use-active-tab';
+import { useLibraryItems } from '@/ui/hooks/use-library-items';
 import { useLibrarySummary } from '@/ui/hooks/use-library-summary';
 import type { LoadState } from '@/ui/hooks/use-repository-data';
 import { useSavedPage } from '@/ui/hooks/use-saved-page';
 import { openLibrary } from '@/ui/navigation';
 
-type Feedback = { tone: 'success' | 'info' | 'error'; message: string };
+type Feedback = {
+  tone: 'success' | 'info' | 'error';
+  message: string;
+  /** The item the message is about, which "Show in library" opens. */
+  itemId?: ResearchItemId;
+};
 
 export function App() {
   const { name, version } = browser.runtime.getManifest();
@@ -37,9 +46,7 @@ export function App() {
           type="button"
           className="button button--quiet"
           onClick={() => {
-            void openLibrary().then(() => {
-              window.close();
-            });
+            showInLibrary();
           }}
         >
           Open library
@@ -88,6 +95,11 @@ function CurrentTab({ tab }: { tab: BrowserTab }) {
 function SaveForm({ tab, page }: { tab: BrowserTab; page: SaveablePage }) {
   const services = useAppServices();
   const savedPage = useSavedPage(page.url);
+  const library = useLibraryItems();
+  const knownTags = useMemo(
+    () => (library.status === 'ready' ? libraryFacets(library.value.items).tags : []),
+    [library],
+  );
   const [note, setNote] = useState('');
   const [tagsText, setTagsText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -120,6 +132,7 @@ function SaveForm({ tab, page }: { tab: BrowserTab; page: SaveablePage }) {
           {site}
           {existing && ` · Saved ${formatDate(existing.createdAt)}`}
         </p>
+        {existing && feedback?.itemId === undefined && <ShowInLibraryButton itemId={existing.id} />}
       </section>
 
       <form
@@ -152,6 +165,7 @@ function SaveForm({ tab, page }: { tab: BrowserTab; page: SaveablePage }) {
             }}
           />
         </label>
+        <TagSuggestions tags={knownTags} value={tagsText} onChange={setTagsText} />
         <div className="popup__actions">
           <button
             type="button"
@@ -185,8 +199,30 @@ function SaveForm({ tab, page }: { tab: BrowserTab; page: SaveablePage }) {
           </p>
         )}
       </div>
+      {feedback?.itemId !== undefined && <ShowInLibraryButton itemId={feedback.itemId} />}
     </>
   );
+}
+
+function ShowInLibraryButton({ itemId }: { itemId: ResearchItemId }) {
+  return (
+    <button
+      type="button"
+      className="button button--quiet"
+      data-testid="show-in-library"
+      onClick={() => {
+        showInLibrary(itemId);
+      }}
+    >
+      Show in library
+    </button>
+  );
+}
+
+function showInLibrary(itemId?: ResearchItemId): void {
+  void openLibrary(itemId).then(() => {
+    window.close();
+  });
 }
 
 function describeSave(result: Result<SaveOutcome, AppError>): Feedback {
@@ -194,10 +230,11 @@ function describeSave(result: Result<SaveOutcome, AppError>): Feedback {
   const { status, item } = result.value;
   const what = item.kind === 'page' ? 'Page' : 'Highlight';
   return status === 'saved'
-    ? { tone: 'success', message: `${what} saved.` }
+    ? { tone: 'success', message: `${what} saved.`, itemId: item.id }
     : {
         tone: 'info',
         message: `${what} was already saved on ${formatDate(item.createdAt)}. Nothing was changed.`,
+        itemId: item.id,
       };
 }
 

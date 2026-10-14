@@ -20,6 +20,8 @@ export type ResearchRepository = {
   get: (id: ResearchItemId) => Promise<Result<ResearchItem | undefined, StorageError>>;
   /** Inserts the item, or replaces the stored item with the same id. */
   save: (item: ResearchItem) => Promise<Result<void, StorageError>>;
+  /** Saves several items in one write: either all are stored or none are. */
+  saveMany: (items: readonly ResearchItem[]) => Promise<Result<void, StorageError>>;
   delete: (id: ResearchItemId) => Promise<Result<void, StorageError>>;
   /** Calls `listener` after items change in any extension page. Returns an unsubscribe function. */
   subscribe: (listener: () => void) => () => void;

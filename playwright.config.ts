@@ -6,6 +6,9 @@ export default defineConfig({
   testDir: 'tests/e2e',
   // Every test launches its own browser with the extension installed.
   workers: 1,
+  // Starting and closing a browser takes a few seconds, and Firefox tests send real
+  // input through the debugger protocol, one round trip at a time.
+  timeout: 60_000,
   reporter: [['list']],
   projects: [
     // Google Chrome (/opt/google/chrome on Linux).

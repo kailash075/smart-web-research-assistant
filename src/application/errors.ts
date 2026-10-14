@@ -4,7 +4,10 @@ import type { StorageError } from './ports';
 /** Why a use case failed, with a message that can be shown to the user as is. */
 export type AppError =
   | { kind: 'invalid'; message: string; issues: readonly ValidationIssue[] }
-  | { kind: 'not_found' | 'unsupported_page' | 'page_access' | 'storage'; message: string };
+  | {
+      kind: 'not_found' | 'unsupported_page' | 'page_access' | 'storage' | 'invalid_file';
+      message: string;
+    };
 
 export function invalidInput(issues: readonly ValidationIssue[]): AppError {
   return { kind: 'invalid', message: issues.map((issue) => issue.message).join(' '), issues };

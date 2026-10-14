@@ -1,4 +1,4 @@
-import { parseSaveableUrl } from '@/domain/url';
+import { originalPageUrl, parseSaveableUrl } from '@/domain/url';
 import { err, ok, type Result } from '@/shared/result';
 import type { AppError } from './errors';
 import type { BrowserTab, TabsPort } from './ports';
@@ -25,9 +25,10 @@ export type SaveablePage = { url: string; title: string };
 /** The page a tab shows, or why it cannot be saved. */
 export function pageFromTab(tab: BrowserTab): Result<SaveablePage, AppError> {
   if (tab.url === undefined) return err(NO_ACCESS);
-  const url = parseSaveableUrl(tab.url);
+  const address = originalPageUrl(tab.url);
+  const url = parseSaveableUrl(address);
   if (!url.ok) return err({ kind: 'unsupported_page', message: url.error.message });
-  return ok({ url: tab.url, title: tab.title ?? '' });
+  return ok({ url: address, title: tab.title ?? '' });
 }
 
 export async function savePageFromTab(

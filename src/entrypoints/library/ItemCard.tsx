@@ -1,45 +1,93 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { deleteItem, updateItem } from '@/application/edit-item';
-import { siteOfItem } from '@/domain/library-query';
+import { siteOfItem, type FacetCount } from '@/domain/library-query';
 import type { ResearchItem } from '@/domain/research-item';
 import { formatTagInput, parseTagInput } from '@/domain/tags';
 import { useAppServices } from '@/ui/app-services-context';
+import { TagSuggestions } from '@/ui/components/TagSuggestions';
 import { formatDateTime } from '@/ui/format';
 
 type Mode = 'view' | 'edit' | 'confirm-delete';
 
 type ItemCardProps = {
   item: ResearchItem;
+  /** True when the library was opened to show this item. */
+  isTarget: boolean;
+  tagSuggestions: readonly FacetCount[];
   onTagSelect: (tag: string) => void;
+  onDeleted: (item: ResearchItem) => void;
 };
 
-export function ItemCard({ item, onTagSelect }: ItemCardProps) {
+export function ItemCard({
+  item,
+  isTarget,
+  tagSuggestions,
+  onTagSelect,
+  onDeleted,
+}: ItemCardProps) {
   const services = useAppServices();
   const titleId = useId();
   const [mode, setMode] = useState<Mode>('view');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const articleRef = useRef<HTMLElement>(null);
+  const editButtonRef = useRef<HTMLButtonElement>(null);
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
+  // The button that opened the editor or the delete question gets focus back when
+  // it closes, so keyboard users keep their place. It is not rendered until then.
+  const returnFocusTo = useRef<'edit' | 'delete' | null>(null);
   const kindLabel = item.kind === 'page' ? 'Page' : 'Highlight';
+  const edited = Date.parse(item.updatedAt) > Date.parse(item.createdAt);
+
+  useEffect(() => {
+    if (!isTarget) return;
+    articleRef.current?.scrollIntoView({ block: 'center' });
+    articleRef.current?.focus({ preventScroll: true });
+  }, [isTarget]);
+
+  useEffect(() => {
+    if (mode !== 'view' || returnFocusTo.current === null) return;
+    const button = returnFocusTo.current === 'edit' ? editButtonRef : deleteButtonRef;
+    button.current?.focus();
+    returnFocusTo.current = null;
+  }, [mode]);
+
+  const backToView = (focus: 'edit' | 'delete') => {
+    returnFocusTo.current = focus;
+    setMode('view');
+  };
 
   async function confirmDelete(): Promise<void> {
     setBusy(true);
     const result = await deleteItem(services, item.id);
     // On success the item disappears from the list, so this card unmounts.
-    if (!result.ok) {
+    if (result.ok) {
+      onDeleted(item);
+    } else {
       setBusy(false);
       setError(result.error.message);
     }
   }
 
   return (
-    <li className="item" data-testid="library-item" data-kind={item.kind}>
-      <article aria-labelledby={titleId}>
+    <li
+      className={isTarget ? 'item item--target' : 'item'}
+      data-testid="library-item"
+      data-kind={item.kind}
+      data-target={isTarget || undefined}
+    >
+      <article aria-labelledby={titleId} ref={articleRef} tabIndex={isTarget ? -1 : undefined}>
         <p className="item__meta">
           <span className={`item__kind item__kind--${item.kind}`}>{kindLabel}</span>
           <span data-testid="item-site">{siteOfItem(item)}</span>
           <span>
             Saved <time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>
           </span>
+          {edited && (
+            <span data-testid="item-edited">
+              Edited <time dateTime={item.updatedAt}>{formatDateTime(item.updatedAt)}</time>
+            </span>
+          )}
         </p>
         <h2 className="item__title" id={titleId}>
           <a href={item.url} target="_blank" rel="noopener noreferrer" data-testid="item-title">
@@ -55,8 +103,9 @@ export function ItemCard({ item, onTagSelect }: ItemCardProps) {
         {mode === 'edit' ? (
           <ItemEditor
             item={item}
+            tagSuggestions={tagSuggestions}
             onDone={() => {
-              setMode('view');
+              backToView('edit');
             }}
           />
         ) : (
@@ -90,6 +139,7 @@ export function ItemCard({ item, onTagSelect }: ItemCardProps) {
         {mode === 'view' && (
           <div className="item__actions">
             <button
+              ref={editButtonRef}
               type="button"
               className="button"
               onClick={() => {
@@ -100,6 +150,7 @@ export function ItemCard({ item, onTagSelect }: ItemCardProps) {
               Edit note and tags
             </button>
             <button
+              ref={deleteButtonRef}
               type="button"
               className="button"
               onClick={() => {
@@ -129,7 +180,7 @@ export function ItemCard({ item, onTagSelect }: ItemCardProps) {
               autoFocus
               disabled={busy}
               onClick={() => {
-                setMode('view');
+                backToView('delete');
               }}
             >
               Cancel
@@ -147,7 +198,13 @@ export function ItemCard({ item, onTagSelect }: ItemCardProps) {
   );
 }
 
-function ItemEditor({ item, onDone }: { item: ResearchItem; onDone: () => void }) {
+type ItemEditorProps = {
+  item: ResearchItem;
+  tagSuggestions: readonly FacetCount[];
+  onDone: () => void;
+};
+
+function ItemEditor({ item, tagSuggestions, onDone }: ItemEditorProps) {
   const services = useAppServices();
   const [note, setNote] = useState(item.note);
   const [tagsText, setTagsText] = useState(formatTagInput(item.tags));
@@ -169,6 +226,12 @@ function ItemEditor({ item, onDone }: { item: ResearchItem; onDone: () => void }
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !busy) {
+          event.preventDefault();
+          onDone();
+        }
       }}
     >
       <label className="field">
@@ -196,6 +259,7 @@ function ItemEditor({ item, onDone }: { item: ResearchItem; onDone: () => void }
           }}
         />
       </label>
+      <TagSuggestions tags={tagSuggestions} value={tagsText} onChange={setTagsText} />
       {error !== null && (
         <p className="message message--error" role="alert">
           {error}

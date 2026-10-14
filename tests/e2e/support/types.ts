@@ -9,8 +9,42 @@ export type ExtensionPage = {
   evaluate: <T, A = undefined>(fn: (arg: A) => T | Promise<T>, arg?: A) => Promise<T>;
   /** Uncaught errors and console.error calls from the extension so far. */
   errors: () => string[];
+  /** Runs `action`, which should make the page download one file, and returns that file. */
+  download: (action: () => Promise<void>) => Promise<DownloadedFile>;
+  /** Real mouse and keyboard input. Not available in the popup. */
+  user: UserInput;
   close: () => Promise<void>;
 };
+
+export type DownloadedFile = { filename: string; text: string };
+
+/**
+ * Mouse and keyboard input that reaches the page through the browser, as a person's
+ * does: the events are trusted, count as user activation, and can open the browser's
+ * file chooser. The helpers in dom.ts instead create events inside the page.
+ */
+export type UserInput = {
+  /** Clicks the middle of the first element matching `selector`, scrolling to it first. */
+  click: (selector: string) => Promise<void>;
+  /** Presses and releases one key, such as "/", "a", or "Escape". */
+  press: (key: string) => Promise<void>;
+  /** Types `text` one key at a time. */
+  type: (text: string) => Promise<void>;
+  /**
+   * Clicks `selector`, which must open the browser's file chooser, and picks a file
+   * named `name` containing `text`. Fails if no file chooser opens.
+   */
+  chooseFile: (selector: string, file: { name: string; text: string }) => Promise<void>;
+};
+
+/** One entry in the browser's own list of downloads. */
+export type BrowserDownload = { url: string; complete: boolean };
+
+/** Input for pages where tests cannot send real input. Every method fails. */
+export function unavailableInput(where: string): UserInput {
+  const fail = () => Promise.reject(new Error(`Tests cannot send real input to ${where}`));
+  return { click: fail, press: fail, type: fail, chooseFile: fail };
+}
 
 /** Things only Firefox's debugger protocol can simulate. Chrome's DevTools cannot. */
 export type FirefoxControls = {
@@ -35,6 +69,11 @@ export type InstalledExtension = {
   isBackgroundRunning: () => Promise<boolean>;
   /** Opens one of the extension's own pages (such as `library.html`) in a new tab. */
   openPage: (path: string) => Promise<ExtensionPage>;
+  /**
+   * Resolves with the next extension page that opens at `path` (such as `library.html`),
+   * whatever its query string. Call it before the action that opens the page.
+   */
+  nextPage: (path: string) => Promise<ExtensionPage>;
   /** Opens a web page in a tab and makes it the active tab. */
   openWebPage: (url: string) => Promise<Page>;
   /**
@@ -42,6 +81,8 @@ export type InstalledExtension = {
    * the browser grants `activeTab` for that tab and opens the real popup.
    */
   openPopup: (page: Page) => Promise<ExtensionPage>;
+  /** The browser's own list of downloads (chrome://downloads, or Firefox's Library). */
+  browserDownloads: () => Promise<BrowserDownload[]>;
   /** Present when the browser is Firefox. */
   firefox: FirefoxControls | undefined;
 };
