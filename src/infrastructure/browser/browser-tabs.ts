@@ -19,7 +19,7 @@ export function createBrowserTabs(): TabsPort {
         if (tab?.id === undefined || tab.id < 0) return err(NO_TAB);
         return ok<BrowserTab>({ id: tab.id, url: tab.url, title: tab.title });
       } catch (error) {
-        console.warn('[Recall] Could not read the active tab:', error);
+        console.warn('[Clipwise] Could not read the active tab:', error);
         return err(NO_TAB);
       }
     },
@@ -40,7 +40,7 @@ export function createBrowserTabs(): TabsPort {
       } catch (error) {
         // Browsers refuse to run scripts in protected pages: their own pages, add-on
         // stores, built-in PDF viewers, and pages the user has not acted on.
-        console.warn('[Recall] Could not read the selection:', error);
+        console.warn('[Clipwise] Could not read the selection:', error);
         return err(PAGE_BLOCKED);
       }
     },
@@ -49,26 +49,26 @@ export function createBrowserTabs(): TabsPort {
 
 const TABS_UNAVAILABLE: PageAccessError = {
   kind: 'unavailable',
-  message: 'Recall cannot see your tabs here. Open Recall from the toolbar button.',
+  message: 'Clipwise cannot see your tabs here. Open Clipwise from the toolbar button.',
 };
 
 const NO_TAB: PageAccessError = {
   kind: 'no_tab',
-  message: 'Recall could not find the current tab. Click a page and try again.',
+  message: 'Clipwise could not find the current tab. Click a page and try again.',
 };
 
 const SCRIPTING_UNAVAILABLE: PageAccessError = {
   kind: 'unavailable',
-  message: 'Recall cannot read selected text in this browser.',
+  message: 'Clipwise cannot read selected text in this browser.',
 };
 
 const PASSWORD_FIELD: PageAccessError = {
   kind: 'sensitive',
-  message: 'Recall never saves text from password fields.',
+  message: 'Clipwise never saves text from password fields.',
 };
 
 const PAGE_BLOCKED: PageAccessError = {
   kind: 'blocked',
   message:
-    'Recall cannot read the selected text on this page (PDF viewers and add-on stores, for example). Try right-clicking the selection and choosing "Save selection to Recall".',
+    'Clipwise cannot read the selected text on this page (PDF viewers and add-on stores, for example). Try right-clicking the selection and choosing "Save selection to Clipwise".',
 };

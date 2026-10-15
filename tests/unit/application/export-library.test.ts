@@ -16,10 +16,10 @@ describe('exportLibrary', () => {
     if (!result.ok) return;
     expect(result.value.itemCount).toBe(2);
     expect(result.value.skippedCount).toBe(0);
-    expect(result.value.filename).toMatch(/^recall-export-\d{4}-\d{2}-\d{2}\.json$/);
+    expect(result.value.filename).toMatch(/^clipwise-export-\d{4}-\d{2}-\d{2}\.json$/);
     expect(result.value.json.endsWith('\n')).toBe(true);
     expect(JSON.parse(result.value.json)).toEqual({
-      format: 'recall-export',
+      format: 'clipwise-export',
       version: 1,
       exportedAt: NOW,
       items: [older, newer],
@@ -35,7 +35,7 @@ describe('exportLibrary', () => {
       clock: { now: () => now },
     });
 
-    expect(result.ok && result.value.filename).toBe('recall-export-2026-01-05.json');
+    expect(result.ok && result.value.filename).toBe('clipwise-export-2026-01-05.json');
   });
 
   it('produces a file that imports back unchanged', async () => {

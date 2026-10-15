@@ -27,7 +27,7 @@ const titles = (page: ExtensionPage) => async () =>
   (await readLibrary(page)).map((card) => `${card.kind ?? ''}: ${card.title}`).sort();
 
 function exportFile(items: unknown[], fields: Record<string, unknown> = {}): string {
-  return JSON.stringify({ format: 'recall-export', version: 1, items, ...fields });
+  return JSON.stringify({ format: 'clipwise-export', version: 1, items, ...fields });
 }
 
 test('exports the library to a file that imports back after starting over', async ({
@@ -43,9 +43,9 @@ test('exports the library to a file that imports back after starting over', asyn
 
   // A real download through the browser.
   const file = await library.download(() => clickButton(library, 'Export'));
-  expect(file.filename).toMatch(/^recall-export-\d{4}-\d{2}-\d{2}\.json$/);
+  expect(file.filename).toMatch(/^clipwise-export-\d{4}-\d{2}-\d{2}\.json$/);
   const content = JSON.parse(file.text) as { format: string; version: number; items: unknown[] };
-  expect(content).toMatchObject({ format: 'recall-export', version: 1 });
+  expect(content).toMatchObject({ format: 'clipwise-export', version: 1 });
   expect(content.items).toEqual(expect.arrayContaining(Object.values(LIBRARY)));
   expect(content.items).toHaveLength(4);
   await expect.poll(notice(library)).toContain(`Exported 4 items to ${file.filename}.`);
@@ -77,16 +77,16 @@ test('refuses files it cannot import and says why', async ({ extension }) => {
 
   const cases = [
     ['notes.json', 'this is { not json', 'This file is not valid JSON.'],
-    ['bookmarks.json', '{"bookmarks": []}', 'This is not a Recall export file.'],
+    ['bookmarks.json', '{"bookmarks": []}', 'This is not a Clipwise export file.'],
     [
       'future.json',
       exportFile([], { version: 99 }),
-      'This file was exported by a newer version of Recall. Update Recall to import it.',
+      'This file was exported by a newer version of Clipwise. Update Clipwise to import it.',
     ],
     [
       'broken.json',
-      '{"format": "recall-export", "version": 1}',
-      'This Recall export file is damaged and cannot be imported.',
+      '{"format": "clipwise-export", "version": 1}',
+      'This Clipwise export file is damaged and cannot be imported.',
     ],
   ] as const;
   for (const [name, text, reason] of cases) {
@@ -203,7 +203,7 @@ test('with the mouse, Export downloads a file the browser lists, and Import… r
   const saved = await titles(library)();
 
   const file = await library.download(() => library.user.click(EXPORT_BUTTON));
-  expect(file.filename).toMatch(/^recall-export-\d{4}-\d{2}-\d{2}\.json$/);
+  expect(file.filename).toMatch(/^clipwise-export-\d{4}-\d{2}-\d{2}\.json$/);
   expect((JSON.parse(file.text) as { items: unknown[] }).items).toHaveLength(4);
   // The browser itself recorded a finished download (chrome://downloads, Firefox's Library).
   await expect

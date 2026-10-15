@@ -68,9 +68,9 @@ export async function launchFirefox({
   let client: FirefoxDebugger | undefined;
   let quit: (() => Promise<void>) | undefined;
   // Playwright sends downloads to a folder in /tmp, which snap Firefox cannot write to.
-  const downloadsDir = join(profileDir, 'recall-downloads');
+  const downloadsDir = join(profileDir, 'clipwise-downloads');
   // Files the tests pick in the file chooser, also where snap Firefox can read them.
-  const uploadsDir = join(profileDir, 'recall-uploads');
+  const uploadsDir = join(profileDir, 'clipwise-uploads');
   mkdirSync(downloadsDir, { recursive: true });
   mkdirSync(uploadsDir, { recursive: true });
   const close = async () => {
@@ -369,13 +369,13 @@ function firefoxControls(
         const match = keys.find((element) =>
           element.getAttribute('key') === ${JSON.stringify(key)} &&
           element.getAttribute('modifiers') === ${JSON.stringify(modifiers)});
-        if (!match) throw new Error('Recall has no shortcut ' + ${JSON.stringify(shortcut)});
+        if (!match) throw new Error('Clipwise has no shortcut ' + ${JSON.stringify(shortcut)});
         match.doCommand();`);
     },
     contextMenuItems: async (page, selector) => {
       await openContextMenu(page, selector);
       const labels = await browserCode(`
-        const labels = recallMenuItems().filter((item) => !item.hidden)
+        const labels = clipwiseMenuItems().filter((item) => !item.hidden)
           .map((item) => item.getAttribute('label'));
         contextMenu().hidePopup();
         return JSON.stringify(labels);`);
@@ -384,7 +384,7 @@ function firefoxControls(
     chooseContextMenuItem: async (page, selector, label) => {
       await openContextMenu(page, selector);
       await browserCode(`
-        const item = recallMenuItems().find((candidate) =>
+        const item = clipwiseMenuItems().find((candidate) =>
           !candidate.hidden && candidate.getAttribute('label') === ${JSON.stringify(label)});
         if (!item) throw new Error('No visible menu item ' + ${JSON.stringify(label)});
         item.doCommand();
@@ -421,6 +421,24 @@ function firefoxControls(
             });
           return JSON.stringify([...new Set(shortcuts)].sort());`),
       ) as string[],
+    addonsManagerNames: async () => {
+      await browserCodeAsync(
+        browserCode,
+        `await win.BrowserAddonUI.openAddonsMgr('addons://list/extension');`,
+      );
+      // about:addons runs in the browser's own process, so its page is reachable here.
+      let names: string[] = [];
+      await waitUntil(async () => {
+        names = JSON.parse(
+          await browserCode(`
+            const page = win.gBrowser.selectedBrowser.contentDocument;
+            return JSON.stringify([...(page?.querySelectorAll('addon-card .addon-name') ?? [])]
+              .map((name) => name.textContent.trim()));`),
+        ) as string[];
+        return names.length > 0;
+      });
+      return names;
+    },
     stopBackground: async () => {
       const addon = await getAddon(client, addonId);
       await client.request({ to: String(addon['actor']), type: 'terminateBackgroundScript' });
@@ -432,7 +450,7 @@ function firefoxControls(
 }
 
 // Wraps code that runs in Firefox's own (privileged) process with helpers for the
-// browser window and Recall's toolbar button, menu items, and popup. The code can
+// browser window and Clipwise's toolbar button, menu items, and popup. The code can
 // `return` a string; anything else becomes ''.
 function browserProcessScript(addonId: string, code: string): string {
   return `(() => {
@@ -443,7 +461,7 @@ function browserProcessScript(addonId: string, code: string): string {
     const widgetId = ${JSON.stringify(widgetIdOf(addonId))};
     const actionButton = () => ExtensionParent.apiManager.global.browserActionFor(extension);
     const contextMenu = () => win.document.getElementById('contentAreaContextMenu');
-    const recallMenuItems = () =>
+    const clipwiseMenuItems = () =>
       [...contextMenu().querySelectorAll('menuitem')].filter((item) =>
         item.id.startsWith(widgetId + '-menuitem-'));
     const openPopup = () => {
@@ -620,10 +638,10 @@ function firefoxTabInput(
   const sendAndWait = async (eventType: string, count: number, send: () => Promise<unknown>) => {
     const before = await page.evaluate((eventType) => {
       // Counts every event of each type the page receives.
-      const seen = window as unknown as { recallE2eInput?: Record<string, number> };
-      if (!seen.recallE2eInput) {
+      const seen = window as unknown as { clipwiseE2eInput?: Record<string, number> };
+      if (!seen.clipwiseE2eInput) {
         const counts: Record<string, number> = {};
-        seen.recallE2eInput = counts;
+        seen.clipwiseE2eInput = counts;
         for (const type of ['mouseup', 'keyup']) {
           addEventListener(
             type,
@@ -634,13 +652,13 @@ function firefoxTabInput(
           );
         }
       }
-      return seen.recallE2eInput[eventType] ?? 0;
+      return seen.clipwiseE2eInput[eventType] ?? 0;
     }, eventType);
     await send();
     await waitUntil(() =>
       page.evaluate(
         ([eventType, expected]) =>
-          ((window as unknown as { recallE2eInput: Record<string, number> }).recallE2eInput[
+          ((window as unknown as { clipwiseE2eInput: Record<string, number> }).clipwiseE2eInput[
             eventType
           ] ?? 0) >= expected,
         [eventType, before + count] as const,
@@ -699,7 +717,7 @@ function firefoxTabInput(
       try {
         await click(selector);
         await waitUntil(
-          async () => (await browserCode('return String(recallE2eFilePicker.opened);')) !== '0',
+          async () => (await browserCode('return String(clipwiseE2eFilePicker.opened);')) !== '0',
           5_000,
         ).catch(() => {
           throw new Error(`Clicking ${selector} did not open a file chooser`);
@@ -757,23 +775,23 @@ function installFilePicker(path: string): string {
         return picker.QueryInterface(iid);
       },
     };
-    registrar.registerFactory(state.cid, 'Recall test file picker', contract, state.factory);
-    globalThis.recallE2eFilePicker = state;`;
+    registrar.registerFactory(state.cid, 'Clipwise test file picker', contract, state.factory);
+    globalThis.clipwiseE2eFilePicker = state;`;
 }
 
 const REMOVE_FILE_PICKER = `
-  const state = globalThis.recallE2eFilePicker;
+  const state = globalThis.clipwiseE2eFilePicker;
   if (state) {
     const registrar = Components.manager.QueryInterface(Ci.nsIComponentRegistrar);
     registrar.unregisterFactory(state.cid, state.factory);
     registrar.registerFactory(state.original, '', '@mozilla.org/filepicker;1', null);
-    delete globalThis.recallE2eFilePicker;
+    delete globalThis.clipwiseE2eFilePicker;
   }`;
 
 // Like browserCode, for code that uses `await`. The result is parked in a global and
 // polled, because the debugger returns before promises settle.
 async function browserCodeAsync(browserCode: BrowserCode, code: string): Promise<string> {
-  const slot = `recallE2e_${randomUUID().replaceAll('-', '')}`;
+  const slot = `clipwiseE2e_${randomUUID().replaceAll('-', '')}`;
   await browserCode(`
     globalThis.${slot} = '';
     (async () => { ${code} })().then(
@@ -819,7 +837,7 @@ async function evaluateInPage<T>(
   consoleActor: string,
   expression: string,
 ): Promise<T> {
-  const slot = JSON.stringify(`__recallE2e_${randomUUID()}`);
+  const slot = JSON.stringify(`__clipwiseE2e_${randomUUID()}`);
   await evaluateToString(
     client,
     consoleActor,

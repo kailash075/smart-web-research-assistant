@@ -8,13 +8,13 @@ Commands run from the repository root on Linux x86-64 (see the [README](../READM
 
 These only need deciding once, before the first submission:
 
-- [ ] **Name.** "Recall" is a working name, and Microsoft sells a Windows feature called Recall. Both stores forbid names that infringe a trademark or suggest another company's endorsement, and can remove a listing after a trademark complaint. Pick a final name (at most 45 characters for Firefox Add-ons) and update `name` in `wxt.config.ts`, the README, `PRIVACY.md`, and the listing text in [publishing.md](publishing.md).
+- [x] **Name.** Clipwise (chosen on 14 October 2026, replacing the working name "Recall", which Microsoft uses for a Windows feature). A web search that day found two Chrome Web Store extensions already called Clipwise, both for clipping (a Notion web clipper, and "ClipWise" for AI chat answers), and none on Firefox Add-ons; no trademark database was checked. Before the first submission, search both stores and a trademark database for "Clipwise": both stores forbid names that infringe a trademark or suggest another company's endorsement, and can remove a listing after a trademark complaint. Firefox Add-ons allows names of at most 45 characters.
 - [ ] **License.** The repository has none yet. Firefox Add-ons requires a license for listed add-ons ("All rights reserved" is one of the options). Add a `LICENSE` file and choose the same license on the listing.
 - [ ] **Contact.** Choose a support email address or website. It goes in `PRIVACY.md` (replace the `TODO(release)` line) and in both store listings.
-- [ ] **Privacy policy URL.** The Chrome Web Store requires one, even though Recall keeps everything on the device. The GitHub repository is private, so `PRIVACY.md` is not reachable there: make the repository public, or publish the policy somewhere public, and note the URL.
+- [ ] **Privacy policy URL.** The Chrome Web Store requires one, even though Clipwise keeps everything on the device. The GitHub repository is private, so `PRIVACY.md` is not reachable there: make the repository public, or publish the policy somewhere public, and note the URL.
 - [ ] **Store accounts.** Chrome Web Store: a Google account with 2-Step Verification, a one-time US$5 registration fee (needs the owner's approval), and a trader or non-trader declaration. Firefox Add-ons: a Mozilla account with two-factor authentication, no fee. Details in [publishing.md](publishing.md).
 - [ ] **Listing images.** Screenshots at 1280 × 800 and the Chrome Web Store's required 440 × 280 promo tile ([publishing.md](publishing.md#images-to-prepare)).
-- [ ] **Firefox add-on ID.** `recall@kailash075.github.io` in `wxt.config.ts` becomes permanent once the add-on is submitted. Change it now if it should not contain that name.
+- [ ] **Firefox add-on ID.** `clipwise@kailash075.github.io` in `wxt.config.ts` becomes permanent once the add-on is submitted. Change it now if it should not contain that name.
 
 ## 2. Prepare the code
 
@@ -31,20 +31,20 @@ These only need deciding once, before the first submission:
 - [ ] `pnpm test:tools` (once per machine), then `pnpm test:e2e:oldest`: every test passes in Chrome 120 and Firefox 140.
 - [ ] The real input tests ran rather than being skipped: the `desktop.spec.ts` lines in the output show ✓, not -.
 - [ ] Do the [manual checks](../README.md#manual-checks) in the README.
-- [ ] Look over the screenshots in `test-results/` (popup and library in light and dark, right-click menus).
+- [ ] Look over the screenshots in `test-results/` (popup and library in light and dark, right-click menus). In Chrome's menus, the Clipwise items read "Save page to Clipwise" and "Save selection to Clipwise", which no test can read there.
 
 ## 4. Package
 
-- [ ] `pnpm zip` creates `.output/recall-<version>-chrome.zip`.
-- [ ] `pnpm zip:firefox` creates `.output/recall-<version>-firefox.zip` and `.output/recall-<version>-sources.zip`.
+- [ ] `pnpm zip` creates `.output/clipwise-<version>-chrome.zip`.
+- [ ] `pnpm zip:firefox` creates `.output/clipwise-<version>-firefox.zip` and `.output/clipwise-<version>-sources.zip`.
 - [ ] `pnpm zip:verify` prints "OK": a clean rebuild from the sources zip matches the Firefox package file for file.
-- [ ] Check the packages: `unzip -l .output/recall-<version>-chrome.zip` lists `manifest.json` at the top level, the icons, and no source maps or test files; the version in each `manifest.json` is the new one.
+- [ ] Check the packages: `unzip -l .output/clipwise-<version>-chrome.zip` lists `manifest.json` at the top level, the icons, and no source maps or test files; the version in each `manifest.json` is the new one.
 - [ ] Load each zip's contents in a clean browser profile ([Loading the extension manually](../README.md#loading-the-extension-manually)), save a page, a highlight, and open the library.
 
 ## 5. Tag
 
 - [ ] Commit the version change on `master`: `git commit -am "chore: release <version>"`.
-- [ ] Tag it: `git tag -a v<version> -m "Recall <version>"`, then push the commit and the tag.
+- [ ] Tag it: `git tag -a v<version> -m "Clipwise <version>"`, then push the commit and the tag.
 - [ ] Keep the three zips from `.output/` with the tag (for example as release assets), so the exact uploaded files can be found later.
 
 ## 6. Submit (only with the owner's explicit approval)
@@ -52,4 +52,4 @@ These only need deciding once, before the first submission:
 - [ ] Get explicit approval to publish this version.
 - [ ] Chrome Web Store: follow [publishing.md](publishing.md#chrome-web-store).
 - [ ] Firefox Add-ons: follow [publishing.md](publishing.md#firefox-add-ons).
-- [ ] After approval by each store, install Recall from the store in a clean profile and repeat the quick check from step 4.
+- [ ] After approval by each store, install Clipwise from the store in a clean profile and repeat the quick check from step 4.

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Checks that Firefox Add-ons reviewers can rebuild Recall from the sources zip: unpacks
-# .output/recall-<version>-sources.zip into a temporary folder, installs and builds there
+# Checks that Firefox Add-ons reviewers can rebuild Clipwise from the sources zip: unpacks
+# .output/clipwise-<version>-sources.zip into a temporary folder, installs and builds there
 # exactly as the README's "Build from source" section tells them to, and compares the
 # result with .output/firefox-mv3, file by file. Run `pnpm zip:firefox` first.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 version="$(node -p "require('$root/package.json').version")"
-sources="$root/.output/recall-$version-sources.zip"
+sources="$root/.output/clipwise-$version-sources.zip"
 built="$root/.output/firefox-mv3"
 
 if [[ ! -f "$sources" || ! -d "$built" ]]; then

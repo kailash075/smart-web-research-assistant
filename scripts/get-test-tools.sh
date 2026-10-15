@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Downloads what the end-to-end tests need beyond the installed browsers, for Linux
 # x86-64:
-#  - the oldest browsers Recall supports, Chrome for Testing 120 and Firefox ESR 140,
+#  - the oldest browsers Clipwise supports, Chrome for Testing 120 and Firefox ESR 140,
 #    for `pnpm test:e2e:oldest`;
 #  - Xvfb, a virtual display, for tests/e2e/desktop.spec.ts, which presses keys and
 #    clicks menus as a person does (Debian and Ubuntu only: it comes from apt).
-# Everything goes into ~/.cache/recall-e2e-browsers, where the tests look for it, and
+# Everything goes into ~/.cache/clipwise-e2e-browsers, where the tests look for it, and
 # nothing is installed system-wide. Running it again skips what is already there.
 set -euo pipefail
 
-DEST="$HOME/.cache/recall-e2e-browsers"
+DEST="$HOME/.cache/clipwise-e2e-browsers"
 CHROME_VERSION=120.0.6099.109
 CHROME_URL="https://storage.googleapis.com/chrome-for-testing-public/$CHROME_VERSION/linux64/chrome-linux64.zip"
 FIREFOX_VERSION=140.0esr

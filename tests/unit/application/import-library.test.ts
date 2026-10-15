@@ -14,7 +14,7 @@ import { createMemoryRepository, sequentialIds } from '../support/fakes';
 import { makeHighlight, makePage } from '../support/items';
 
 function exportText(items: unknown[], envelope: Record<string, unknown> = {}): string {
-  return JSON.stringify({ format: 'recall-export', version: 1, items, ...envelope });
+  return JSON.stringify({ format: 'clipwise-export', version: 1, items, ...envelope });
 }
 
 function readOk(text: string): ImportFile {
@@ -43,7 +43,7 @@ describe('checkImportSize', () => {
 });
 
 describe('readImportFile', () => {
-  it('reads the items of a Recall export file', () => {
+  it('reads the items of a Clipwise export file', () => {
     const items = [makePage(), makeHighlight()];
 
     expect(readImportFile(exportText(items))).toEqual({
@@ -52,25 +52,34 @@ describe('readImportFile', () => {
     });
   });
 
+  it('reads files exported before the extension was renamed from Recall', () => {
+    const items = [makePage()];
+
+    expect(readImportFile(exportText(items, { format: 'recall-export' }))).toEqual({
+      ok: true,
+      value: { items, invalidCount: 0, problems: [] },
+    });
+  });
+
   it.each([
     ['text that is not JSON', 'not json {', 'This file is not valid JSON.'],
     ['an empty file', '', 'This file is not valid JSON.'],
-    ['a JSON array', '[]', 'This is not a Recall export file.'],
-    ['JSON from another app', '{"bookmarks": []}', 'This is not a Recall export file.'],
+    ['a JSON array', '[]', 'This is not a Clipwise export file.'],
+    ['JSON from another app', '{"bookmarks": []}', 'This is not a Clipwise export file.'],
     [
       'a file from a newer version',
       exportText([], { version: 2, items: 'a new shape' }),
-      'This file was exported by a newer version of Recall.',
+      'This file was exported by a newer version of Clipwise.',
     ],
     [
       'a file without items',
-      '{"format": "recall-export", "version": 1}',
-      'This Recall export file is damaged and cannot be imported.',
+      '{"format": "clipwise-export", "version": 1}',
+      'This Clipwise export file is damaged and cannot be imported.',
     ],
     [
       'a file with a broken version',
       exportText([], { version: 'one' }),
-      'This Recall export file is damaged and cannot be imported.',
+      'This Clipwise export file is damaged and cannot be imported.',
     ],
   ])('refuses %s', (_label, text, message) => {
     const result = readImportFile(text);

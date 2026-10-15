@@ -58,7 +58,7 @@ export function createBrowserStorageResearchRepository(
         }
         if (result.skippedCount > 0) {
           console.warn(
-            `[Recall] Skipped ${String(result.skippedCount)} unreadable stored item(s).`,
+            `[Clipwise] Skipped ${String(result.skippedCount)} unreadable stored item(s).`,
           );
         }
         return ok(result);
@@ -154,7 +154,7 @@ const UNAVAILABLE: StorageError = {
 const NEWER_SCHEMA: StorageError = {
   kind: 'newer_schema',
   message:
-    'Your saved research was created by a newer version of Recall. Update the extension to use it.',
+    'Your saved research was created by a newer version of Clipwise. Update the extension to use it.',
 };
 
 const INVALID_STORED_ITEM: StorageError = {

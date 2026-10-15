@@ -30,7 +30,7 @@ export async function exportLibrary(deps: {
     items,
   };
   return ok({
-    filename: `recall-export-${localDate(now)}.json`,
+    filename: `clipwise-export-${localDate(now)}.json`,
     json: `${JSON.stringify(file, null, 2)}\n`,
     itemCount: items.length,
     skippedCount: stored.value.skippedCount,

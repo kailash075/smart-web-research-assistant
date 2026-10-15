@@ -72,5 +72,5 @@ function hasText(text: string): boolean {
 const NO_ACCESS: AppError = {
   kind: 'unsupported_page',
   message:
-    "Recall can't save this page. Browser pages such as settings, new tabs, and add-on stores are off limits to extensions.",
+    "Clipwise can't save this page. Browser pages such as settings, new tabs, and add-on stores are off limits to extensions.",
 };

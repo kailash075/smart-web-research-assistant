@@ -24,7 +24,7 @@ export default defineBackground(() => {
   const services = createAppServices();
 
   browser.runtime.onInstalled.addListener(({ reason }) => {
-    console.info(`[Recall] background ready (install reason: ${reason})`);
+    console.info(`[Clipwise] background ready (install reason: ${reason})`);
     void createContextMenus();
   });
 
@@ -59,17 +59,17 @@ export default defineBackground(() => {
 async function createContextMenus(): Promise<void> {
   // Menus survive background restarts but not every update, so start from scratch.
   await browser.contextMenus.removeAll();
-  // Only offered on web pages, the only pages Recall can save.
+  // Only offered on web pages, the only pages Clipwise can save.
   const documentUrlPatterns = ['http://*/*', 'https://*/*'];
   browser.contextMenus.create({
     id: MENU_SAVE_PAGE,
-    title: 'Save page to Recall',
+    title: 'Save page to Clipwise',
     contexts: ['page'],
     documentUrlPatterns,
   });
   browser.contextMenus.create({
     id: MENU_SAVE_SELECTION,
-    title: 'Save selection to Recall',
+    title: 'Save selection to Clipwise',
     contexts: ['selection'],
     documentUrlPatterns,
   });
@@ -82,7 +82,7 @@ async function runSave(
   try {
     await showSaveFeedback(tab.id, await save);
   } catch (error) {
-    console.error('[Recall] Saving failed unexpectedly:', error);
+    console.error('[Clipwise] Saving failed unexpectedly:', error);
   }
 }
 

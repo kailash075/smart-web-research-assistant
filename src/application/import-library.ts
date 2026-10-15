@@ -1,6 +1,11 @@
 import { planImport, type ConflictPolicy, type ImportCounts } from '@/domain/import-plan';
 import type { ResearchItem } from '@/domain/research-item';
-import { EXPORT_FORMAT, EXPORT_VERSION, exportFileSchema } from '@/schemas/export-file.schema';
+import {
+  EXPORT_FORMAT,
+  EXPORT_VERSION,
+  exportFileSchema,
+  LEGACY_EXPORT_FORMAT,
+} from '@/schemas/export-file.schema';
 import { researchItemSchema } from '@/schemas/research-item.schema';
 import { err, ok, type Result } from '@/shared/result';
 import { storageFailure, type AppError } from './errors';
@@ -35,35 +40,36 @@ export function checkImportSize(bytes: number): Result<void, AppError> {
     : ok(undefined);
 }
 
-/** Parses and validates the text of a file exported from Recall. */
+/** Parses and validates the text of a file exported from Clipwise (or from Recall, its former name). */
 export function readImportFile(text: string): Result<ImportFile, AppError> {
   let data: unknown;
   try {
     data = JSON.parse(text);
   } catch {
-    return err(invalidFile('This file is not valid JSON. Choose a file exported from Recall.'));
+    return err(invalidFile('This file is not valid JSON. Choose a file exported from Clipwise.'));
   }
-  if (!isRecord(data) || data['format'] !== EXPORT_FORMAT) {
-    return err(invalidFile('This is not a Recall export file.'));
+  const format = isRecord(data) ? data['format'] : undefined;
+  if (!isRecord(data) || (format !== EXPORT_FORMAT && format !== LEGACY_EXPORT_FORMAT)) {
+    return err(invalidFile('This is not a Clipwise export file.'));
   }
   // Checked before the shape, because a newer version may use a different shape.
   const version = data['version'];
   if (typeof version === 'number' && version > EXPORT_VERSION) {
     return err(
       invalidFile(
-        'This file was exported by a newer version of Recall. Update Recall to import it.',
+        'This file was exported by a newer version of Clipwise. Update Clipwise to import it.',
       ),
     );
   }
   const envelope = exportFileSchema.safeParse(data);
   if (!envelope.success) {
-    return err(invalidFile('This Recall export file is damaged and cannot be imported.'));
+    return err(invalidFile('This Clipwise export file is damaged and cannot be imported.'));
   }
   const entries = envelope.data.items;
   if (entries.length > MAX_IMPORT_ITEMS) {
     return err(
       invalidFile(
-        `This file has more than ${MAX_IMPORT_ITEMS.toLocaleString('en')} items, which is more than Recall can import at once.`,
+        `This file has more than ${MAX_IMPORT_ITEMS.toLocaleString('en')} items, which is more than Clipwise can import at once.`,
       ),
     );
   }

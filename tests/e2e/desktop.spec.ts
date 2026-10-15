@@ -22,7 +22,7 @@ async function onDesktop(
   return { extension, desktop: extension.desktop };
 }
 
-/** Right-clicks `selector`, saves a screenshot of the menu, and returns Recall's items. */
+/** Right-clicks `selector`, saves a screenshot of the menu, and returns Clipwise's items. */
 async function rightClick(
   desktop: DesktopControls,
   page: WebPage,
@@ -32,7 +32,7 @@ async function rightClick(
 ) {
   const menu = await desktop.openContextMenu(() => desktop.click(page, selector, 'right'));
   await desktop.screenshot(testInfo.outputPath(`${screenshot}.png`));
-  return menu.recallItems;
+  return menu.clipwiseItems;
 }
 
 test('real key presses open the popup and save the page and the selection', async ({
@@ -55,23 +55,23 @@ test('real key presses open the popup and save the page and the selection', asyn
   await desktop.pressKeys('Alt+Shift+D');
   await expect
     .poll(() => extension.toolbarButton())
-    .toEqual({ badge: '✓', title: 'Recall: Page saved.' });
+    .toEqual({ badge: '✓', title: 'Clipwise: Page saved.' });
   await desktop.pressKeys('Alt+Shift+D');
   await expect
     .poll(() => extension.toolbarButton())
-    .toEqual({ badge: '✓', title: 'Recall: Page was already saved.' });
+    .toEqual({ badge: '✓', title: 'Clipwise: Page was already saved.' });
 
   await selectText(article, '#quote');
   await desktop.pressKeys('Alt+Shift+L');
   await expect
     .poll(() => extension.toolbarButton())
-    .toEqual({ badge: '✓', title: 'Recall: Highlight saved.' });
+    .toEqual({ badge: '✓', title: 'Clipwise: Highlight saved.' });
 
   await clearSelection(article);
   await desktop.pressKeys('Alt+Shift+L');
   await expect
     .poll(() => extension.toolbarButton())
-    .toEqual({ badge: '!', title: 'Recall: Select some text on the page first.' });
+    .toEqual({ badge: '!', title: 'Clipwise: Select some text on the page first.' });
 
   const library = await extension.openPage('library.html');
   await expect
@@ -91,28 +91,28 @@ test('the right-click menu saves the page, or only the selection when text is se
   await desktop.click(article, '#second');
   await clearSelection(article);
 
-  // One Recall item, "Save page to Recall"; what it saves shows which item it was.
+  // One Clipwise item, "Save page to Clipwise"; what it saves shows which item it was.
   const pageItems = await rightClick(desktop, article, '#second', 'page-menu', testInfo);
   expect(pageItems).toHaveLength(1);
   await desktop.clickAt(pageItems[0] ?? { x: 0, y: 0 });
   await expect
     .poll(() => extension.toolbarButton())
-    .toEqual({ badge: '✓', title: 'Recall: Page saved.' });
+    .toEqual({ badge: '✓', title: 'Clipwise: Page saved.' });
 
   const again = await rightClick(desktop, article, '#second', 'page-menu-again', testInfo);
   await desktop.clickAt(again[0] ?? { x: 0, y: 0 });
   await expect
     .poll(() => extension.toolbarButton())
-    .toEqual({ badge: '✓', title: 'Recall: Page was already saved.' });
+    .toEqual({ badge: '✓', title: 'Clipwise: Page was already saved.' });
 
-  // With text selected, Recall offers "Save selection to Recall" and not the page.
+  // With text selected, Clipwise offers "Save selection to Clipwise" and not the page.
   await selectText(article, '#quote');
   const selectionItems = await rightClick(desktop, article, '#quote', 'selection-menu', testInfo);
   expect(selectionItems).toHaveLength(1);
   await desktop.clickAt(selectionItems[0] ?? { x: 0, y: 0 });
   await expect
     .poll(() => extension.toolbarButton())
-    .toEqual({ badge: '✓', title: 'Recall: Highlight saved.' });
+    .toEqual({ badge: '✓', title: 'Clipwise: Highlight saved.' });
 
   const library = await extension.openPage('library.html');
   await expect
@@ -124,7 +124,7 @@ test('the right-click menu saves the page, or only the selection when text is se
   expect(library.errors()).toEqual([]);
 });
 
-test('the right-click menu has no Recall items on local files and browser pages', async ({
+test('the right-click menu has no Clipwise items on local files and browser pages', async ({
   launchExtension,
   browserName,
 }, testInfo) => {
@@ -167,12 +167,12 @@ test("in Chrome's PDF viewer, the menu key's menu saves the selection", async ({
   await desktop.pressKeys('Ctrl+A');
   const menu = await desktop.openContextMenu(() => desktop.pressKeys('Shift+F10'));
   await desktop.screenshot(testInfo.outputPath('pdf-menu.png'));
-  expect(menu.recallItems).toHaveLength(1);
-  await desktop.clickAt(menu.recallItems[0] ?? { x: 0, y: 0 });
+  expect(menu.clipwiseItems).toHaveLength(1);
+  await desktop.clickAt(menu.clipwiseItems[0] ?? { x: 0, y: 0 });
 
   await expect
     .poll(() => extension.toolbarButton())
-    .toEqual({ badge: '✓', title: 'Recall: Highlight saved.' });
+    .toEqual({ badge: '✓', title: 'Clipwise: Highlight saved.' });
   const library = await extension.openPage('library.html');
   await expect
     .poll(async () =>
@@ -187,9 +187,9 @@ test("in Chrome's PDF viewer, the menu key's menu saves the selection", async ({
 });
 
 // Pages can give links access keys. Firefox triggers them with Alt+Shift and the
-// letter, like Recall's shortcuts, and gives the keys to the page; Chrome (on Windows
-// and Linux) uses Alt and the letter. Recall's letters are ones Wikipedia leaves free.
-test("Recall's shortcuts work on a page with Wikipedia's access keys", async ({
+// letter, like Clipwise's shortcuts, and gives the keys to the page; Chrome (on Windows
+// and Linux) uses Alt and the letter. Clipwise's letters are ones Wikipedia leaves free.
+test("Clipwise's shortcuts work on a page with Wikipedia's access keys", async ({
   launchExtension,
   site,
 }) => {
@@ -200,25 +200,25 @@ test("Recall's shortcuts work on a page with Wikipedia's access keys", async ({
   await desktop.pressKeys('Alt+Shift+D');
   await expect
     .poll(() => extension.toolbarButton())
-    .toEqual({ badge: '✓', title: 'Recall: Page saved.' });
+    .toEqual({ badge: '✓', title: 'Clipwise: Page saved.' });
   await selectText(page, '#quote');
   await desktop.pressKeys('Alt+Shift+L');
   await expect
     .poll(() => extension.toolbarButton())
-    .toEqual({ badge: '✓', title: 'Recall: Highlight saved.' });
+    .toEqual({ badge: '✓', title: 'Clipwise: Highlight saved.' });
   const popupOpened = extension.nextPopup();
   await desktop.pressKeys('Alt+Shift+M');
   await popupOpened;
   expect(await page.evaluate(() => document.body.dataset['used'] ?? '')).toBe('');
 });
 
-test("in Firefox, a page's access keys with Recall's letters win over Recall", async ({
+test("in Firefox, a page's access keys with Clipwise's letters win over Clipwise", async ({
   launchExtension,
   browserName,
   site,
 }) => {
   const { extension, desktop } = await onDesktop(launchExtension);
-  const page = await extension.openWebPage(site.url('/recall-keys.html'));
+  const page = await extension.openWebPage(site.url('/clipwise-keys.html'));
   const usedKeys = () => page.evaluate(() => document.body.dataset['used'] ?? '');
   await desktop.click(page, '#quote');
   await selectText(page, '#quote');
@@ -228,17 +228,17 @@ test("in Firefox, a page's access keys with Recall's letters win over Recall", a
     await expect.poll(usedKeys).toBe('l');
     await desktop.pressKeys('Alt+Shift+D', 'Alt+Shift+M');
     await expect.poll(usedKeys).toBe('ldm');
-    expect(await extension.toolbarButton()).toEqual({ badge: '', title: 'Recall' });
+    expect(await extension.toolbarButton()).toEqual({ badge: '', title: 'Clipwise' });
     const library = await extension.openPage('library.html');
     expect(await readLibrary(library)).toEqual([]);
   } else {
     await expect
       .poll(() => extension.toolbarButton())
-      .toEqual({ badge: '✓', title: 'Recall: Highlight saved.' });
+      .toEqual({ badge: '✓', title: 'Clipwise: Highlight saved.' });
     await desktop.pressKeys('Alt+Shift+D');
     await expect
       .poll(() => extension.toolbarButton())
-      .toEqual({ badge: '✓', title: 'Recall: Page saved.' });
+      .toEqual({ badge: '✓', title: 'Clipwise: Page saved.' });
     const popupOpened = extension.nextPopup();
     await desktop.pressKeys('Alt+Shift+M');
     await popupOpened;

@@ -122,7 +122,7 @@ test.describe('saving from the popup', () => {
 
     await clickButton(popup, 'Save selection');
 
-    await expect.poll(feedbackOf(popup)).toBe('Recall never saves text from password fields.');
+    await expect.poll(feedbackOf(popup)).toBe('Clipwise never saves text from password fields.');
     expect(await summaryOf(popup)()).toBe('0 items (0 pages, 0 highlights)');
   });
 });
@@ -139,18 +139,20 @@ test.describe('saving with the context menu and shortcuts', () => {
     const article = await extension.openWebPage(site.url('/article.html'));
 
     await clearSelection(article);
-    expect(await firefox.contextMenuItems(article, '#second')).toEqual(['Save page to Recall']);
-    await firefox.chooseContextMenuItem(article, '#second', 'Save page to Recall');
+    expect(await firefox.contextMenuItems(article, '#second')).toEqual(['Save page to Clipwise']);
+    await firefox.chooseContextMenuItem(article, '#second', 'Save page to Clipwise');
     await expect
       .poll(() => extension.toolbarButton())
-      .toEqual({ badge: '✓', title: 'Recall: Page saved.' });
+      .toEqual({ badge: '✓', title: 'Clipwise: Page saved.' });
 
     await selectText(article, '#quote');
-    expect(await firefox.contextMenuItems(article, '#quote')).toEqual(['Save selection to Recall']);
-    await firefox.chooseContextMenuItem(article, '#quote', 'Save selection to Recall');
+    expect(await firefox.contextMenuItems(article, '#quote')).toEqual([
+      'Save selection to Clipwise',
+    ]);
+    await firefox.chooseContextMenuItem(article, '#quote', 'Save selection to Clipwise');
     await expect
       .poll(() => extension.toolbarButton())
-      .toEqual({ badge: '✓', title: 'Recall: Highlight saved.' });
+      .toEqual({ badge: '✓', title: 'Clipwise: Highlight saved.' });
 
     const library = await extension.openPage('library.html');
     await expect
@@ -180,24 +182,24 @@ test.describe('saving with the context menu and shortcuts', () => {
     await firefox.pressShortcut(article, 'Alt+Shift+D');
     await expect
       .poll(() => extension.toolbarButton())
-      .toEqual({ badge: '✓', title: 'Recall: Page saved.' });
+      .toEqual({ badge: '✓', title: 'Clipwise: Page saved.' });
 
     await firefox.pressShortcut(article, 'Alt+Shift+D');
     await expect
       .poll(() => extension.toolbarButton())
-      .toEqual({ badge: '✓', title: 'Recall: Page was already saved.' });
+      .toEqual({ badge: '✓', title: 'Clipwise: Page was already saved.' });
 
     await selectText(article, '#quote');
     await firefox.pressShortcut(article, 'Alt+Shift+L');
     await expect
       .poll(() => extension.toolbarButton())
-      .toEqual({ badge: '✓', title: 'Recall: Highlight saved.' });
+      .toEqual({ badge: '✓', title: 'Clipwise: Highlight saved.' });
 
     await clearSelection(article);
     await firefox.pressShortcut(article, 'Alt+Shift+L');
     await expect
       .poll(() => extension.toolbarButton())
-      .toEqual({ badge: '!', title: 'Recall: Select some text on the page first.' });
+      .toEqual({ badge: '!', title: 'Clipwise: Select some text on the page first.' });
 
     const library = await extension.openPage('library.html');
     await expect.poll(async () => (await readLibrary(library)).length).toBe(2);

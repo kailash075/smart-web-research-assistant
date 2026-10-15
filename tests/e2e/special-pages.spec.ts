@@ -3,11 +3,11 @@ import { clickButton, readLibrary, selectText, textOf } from './support/dom';
 import { expect, test, type ExtensionPage } from './support/fixtures';
 import { PDF_TEXT } from './support/test-site';
 
-// Pages Recall cannot save, or can only partly read.
+// Pages Clipwise cannot save, or can only partly read.
 
 const ONLY_WEB_PAGES = 'Only web pages (http or https) can be saved.';
 const CANNOT_READ_SELECTION =
-  'Recall cannot read the selected text on this page (PDF viewers and add-on stores, for example). Try right-clicking the selection and choosing "Save selection to Recall".';
+  'Clipwise cannot read the selected text on this page (PDF viewers and add-on stores, for example). Try right-clicking the selection and choosing "Save selection to Clipwise".';
 
 const statusOf = (popup: ExtensionPage) => () => textOf(popup, '[data-testid="page-status"]');
 const feedbackOf = (popup: ExtensionPage) => () => textOf(popup, '[data-testid="save-feedback"]');
@@ -27,7 +27,7 @@ test('the popup explains that browser pages cannot be saved', async ({
     .toBe(
       browserName === 'firefox'
         ? ONLY_WEB_PAGES
-        : "Recall can't save this page. Browser pages such as settings, new tabs, and add-on stores are off limits to extensions.",
+        : "Clipwise can't save this page. Browser pages such as settings, new tabs, and add-on stores are off limits to extensions.",
     );
   expect(await textOf(popup, '[data-testid="save-page"]')).toBeNull();
   expect(popup.errors()).toEqual([]);
@@ -81,13 +81,13 @@ test('in a PDF, right-clicking a selection saves it', async ({ extension, site }
   await selectText(pdf, '.textLayer span');
 
   expect(await firefox.contextMenuItems(pdf, '.textLayer span')).toEqual([
-    'Save selection to Recall',
+    'Save selection to Clipwise',
   ]);
-  await firefox.chooseContextMenuItem(pdf, '.textLayer span', 'Save selection to Recall');
+  await firefox.chooseContextMenuItem(pdf, '.textLayer span', 'Save selection to Clipwise');
 
   await expect
     .poll(() => extension.toolbarButton())
-    .toEqual({ badge: '✓', title: 'Recall: Highlight saved.' });
+    .toEqual({ badge: '✓', title: 'Clipwise: Highlight saved.' });
   const library = await extension.openPage('library.html');
   await expect
     .poll(async () => (await readLibrary(library)).map(({ kind, text }) => ({ kind, text })))

@@ -95,7 +95,7 @@ export function App() {
     <main className="library">
       <header className="library__header">
         <div>
-          <h1 className="library__title">Recall library</h1>
+          <h1 className="library__title">Clipwise library</h1>
           {library.status === 'ready' && (
             <p className="library__muted" data-testid="library-count">
               {describeCounts(library.value.items)}
@@ -174,7 +174,7 @@ export function App() {
       {library.status === 'ready' && library.value.skippedCount > 0 && (
         <p className="message message--info" data-testid="skipped-notice">
           {plural(library.value.skippedCount, 'saved item')} could not be read and{' '}
-          {library.value.skippedCount === 1 ? 'is' : 'are'} not shown. Recall leaves{' '}
+          {library.value.skippedCount === 1 ? 'is' : 'are'} not shown. Clipwise leaves{' '}
           {library.value.skippedCount === 1 ? 'it' : 'them'} untouched in storage.
         </p>
       )}
@@ -188,10 +188,11 @@ export function App() {
         <section className="library__empty" data-testid="empty-library">
           <h2>Your library is empty</h2>
           <p>
-            To save the page you are reading, click the Recall button in the toolbar or right-click
-            the page and choose <strong>Save page to Recall</strong>. To save a highlight, select
-            text first. The default keyboard shortcuts are <kbd>Alt+Shift+D</kbd> (save page) and{' '}
-            <kbd>Alt+Shift+L</kbd> (save selection). You can also import a backup file.
+            To save the page you are reading, click the Clipwise button in the toolbar or
+            right-click the page and choose <strong>Save page to Clipwise</strong>. To save a
+            highlight, select text first. The default keyboard shortcuts are <kbd>Alt+Shift+D</kbd>{' '}
+            (save page) and <kbd>Alt+Shift+L</kbd> (save selection). You can also import a backup
+            file.
           </p>
         </section>
       )}

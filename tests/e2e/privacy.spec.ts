@@ -1,6 +1,6 @@
 import { expect, test } from './support/fixtures';
 
-// Recall's manifest gives its pages a content security policy with `connect-src 'none'`
+// Clipwise's manifest gives its pages a content security policy with `connect-src 'none'`
 // and `default-src 'self'`, so the browser itself stops them from sending anything over
 // the network. The local test site records every request that reaches it.
 
@@ -31,7 +31,7 @@ async function trySending(url: string): Promise<string[]> {
   return outcomes;
 }
 
-test("Recall's own pages cannot send anything over the network", async ({ extension, site }) => {
+test("Clipwise's own pages cannot send anything over the network", async ({ extension, site }) => {
   // The same attempts from a web page reach the site, so the check below is meaningful.
   const article = await extension.openWebPage(site.url('/article.html'));
   await article.evaluate(trySending, site.url('/from-web-page'));

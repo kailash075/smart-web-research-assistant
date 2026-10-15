@@ -1,7 +1,7 @@
 import { waitUntil, type ContextMenu, type DesktopControls, type WebPage } from './types';
 import type { ScreenWindow, VirtualDisplay } from './virtual-display';
 
-/** Real input on `display`. `icon` is Recall's 16-pixel icon, used to find its menu items. */
+/** Real input on `display`. `icon` is Clipwise's 16-pixel icon, used to find its menu items. */
 export function desktopControls(display: VirtualDisplay, icon: string): DesktopControls {
   const click = async (page: WebPage, selector: string, button?: 'left' | 'right') => {
     await page.bringToFront();
@@ -40,7 +40,7 @@ export function desktopControls(display: VirtualDisplay, icon: string): DesktopC
         items = again;
         return settled;
       });
-      return { box, recallItems: items };
+      return { box, clipwiseItems: items };
     },
   };
 }
