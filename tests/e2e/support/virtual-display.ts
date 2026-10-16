@@ -9,7 +9,7 @@ import { waitUntil } from './types';
 const run = promisify(execFile);
 
 // `scripts/get-test-tools.sh` unpacks Xvfb here; nothing is installed system-wide.
-const XVFB = join(homedir(), '.cache/clipwise-e2e-browsers/xvfb/usr/bin/Xvfb');
+const XVFB = join(homedir(), '.cache/pagenest-e2e-browsers/xvfb/usr/bin/Xvfb');
 const INPUT_SCRIPT = resolve('tests/e2e/support/x11-input.py');
 const SIZE = { width: 1280, height: 800 };
 

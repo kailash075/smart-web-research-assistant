@@ -14,7 +14,7 @@ import { createMemoryRepository, sequentialIds } from '../support/fakes';
 import { makeHighlight, makePage } from '../support/items';
 
 function exportText(items: unknown[], envelope: Record<string, unknown> = {}): string {
-  return JSON.stringify({ format: 'clipwise-export', version: 1, items, ...envelope });
+  return JSON.stringify({ format: 'pagenest-export', version: 1, items, ...envelope });
 }
 
 function readOk(text: string): ImportFile {
@@ -43,7 +43,7 @@ describe('checkImportSize', () => {
 });
 
 describe('readImportFile', () => {
-  it('reads the items of a Clipwise export file', () => {
+  it('reads the items of a PageNest export file', () => {
     const items = [makePage(), makeHighlight()];
 
     expect(readImportFile(exportText(items))).toEqual({
@@ -52,34 +52,37 @@ describe('readImportFile', () => {
     });
   });
 
-  it('reads files exported before the extension was renamed from Recall', () => {
-    const items = [makePage()];
+  it.each(['clipwise-export', 'recall-export'])(
+    'reads files exported under an earlier name (%s)',
+    (format) => {
+      const items = [makePage()];
 
-    expect(readImportFile(exportText(items, { format: 'recall-export' }))).toEqual({
-      ok: true,
-      value: { items, invalidCount: 0, problems: [] },
-    });
-  });
+      expect(readImportFile(exportText(items, { format }))).toEqual({
+        ok: true,
+        value: { items, invalidCount: 0, problems: [] },
+      });
+    },
+  );
 
   it.each([
     ['text that is not JSON', 'not json {', 'This file is not valid JSON.'],
     ['an empty file', '', 'This file is not valid JSON.'],
-    ['a JSON array', '[]', 'This is not a Clipwise export file.'],
-    ['JSON from another app', '{"bookmarks": []}', 'This is not a Clipwise export file.'],
+    ['a JSON array', '[]', 'This is not a PageNest export file.'],
+    ['JSON from another app', '{"bookmarks": []}', 'This is not a PageNest export file.'],
     [
       'a file from a newer version',
       exportText([], { version: 2, items: 'a new shape' }),
-      'This file was exported by a newer version of Clipwise.',
+      'This file was exported by a newer version of PageNest.',
     ],
     [
       'a file without items',
-      '{"format": "clipwise-export", "version": 1}',
-      'This Clipwise export file is damaged and cannot be imported.',
+      '{"format": "pagenest-export", "version": 1}',
+      'This PageNest export file is damaged and cannot be imported.',
     ],
     [
       'a file with a broken version',
       exportText([], { version: 'one' }),
-      'This Clipwise export file is damaged and cannot be imported.',
+      'This PageNest export file is damaged and cannot be imported.',
     ],
   ])('refuses %s', (_label, text, message) => {
     const result = readImportFile(text);

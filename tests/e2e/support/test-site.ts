@@ -1,6 +1,6 @@
 import http from 'node:http';
 
-// A tiny local website for saving tests. Clipwise only saves http(s) pages, and a
+// A tiny local website for saving tests. PageNest only saves http(s) pages, and a
 // local server keeps the tests offline and deterministic.
 
 type Page = { title: string; body: string };
@@ -26,8 +26,8 @@ const PAGES: Record<string, Page> = {
     ).join('')}</article>`,
   },
   // Links with access keys, which Firefox triggers with Alt+Shift and the letter, the
-  // same kind of keys as Clipwise's shortcuts. `/wikipedia-keys.html` has Wikipedia's
-  // letters (for a reader who is not logged in); `/clipwise-keys.html` takes Clipwise's.
+  // same kind of keys as PageNest's shortcuts. `/wikipedia-keys.html` has Wikipedia's
+  // letters (for a reader who is not logged in); `/pagenest-keys.html` takes PageNest's.
   // Each link records its use in the body's data-used attribute.
   ...accessKeyPage('/wikipedia-keys.html', [
     'c',
@@ -46,7 +46,7 @@ const PAGES: Record<string, Page> = {
     'x',
     'z',
   ]),
-  ...accessKeyPage('/clipwise-keys.html', ['m', 'd', 'l']),
+  ...accessKeyPage('/pagenest-keys.html', ['m', 'd', 'l']),
   '/other.html': {
     title: 'Another page',
     body: '<h1>Another page</h1><p id="intro">Nothing to see here.</p>',
@@ -66,10 +66,10 @@ function accessKeyPage(path: string, letters: string[]): Record<string, Page> {
   };
 }
 
-// A one-page PDF with a title and one line of text, so tests can check how Clipwise
+// A one-page PDF with a title and one line of text, so tests can check how PageNest
 // behaves in the browser's built-in PDF viewer.
-export const PDF_TITLE = 'Clipwise test PDF';
-export const PDF_TEXT = 'Clipwise PDF test sentence.';
+export const PDF_TITLE = 'PageNest test PDF';
+export const PDF_TEXT = 'PageNest PDF test sentence.';
 
 function buildPdf(): Buffer {
   const content = `BT /F1 24 Tf 72 700 Td (${PDF_TEXT}) Tj ET`;

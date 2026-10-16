@@ -31,7 +31,7 @@ test('the browser assigns every keyboard shortcut', async ({ extension }) => {
   expect(await shortcuts(library)).toEqual(SHORTCUTS);
 });
 
-test("Chrome's shortcuts page shows Clipwise's shortcuts", async ({ extension }) => {
+test("Chrome's shortcuts page shows PageNest's shortcuts", async ({ extension }) => {
   test.skip(extension.firefox !== undefined, 'chrome://extensions/shortcuts is in Chrome');
   const page = await extension.openWebPage('chrome://extensions/shortcuts');
 
@@ -44,7 +44,7 @@ test("Chrome's shortcuts page shows Clipwise's shortcuts", async ({ extension })
     ]);
 });
 
-test("Firefox's own shortcuts and menu bar leave Clipwise's keys free", async ({ extension }) => {
+test("Firefox's own shortcuts and menu bar leave PageNest's keys free", async ({ extension }) => {
   const { firefox } = extension;
   test.skip(!firefox, 'Chrome does not assign a shortcut that clashes, checked above');
   if (!firefox) return;
@@ -55,7 +55,7 @@ test("Firefox's own shortcuts and menu bar leave Clipwise's keys free", async ({
 
   // With focus in a page, Alt+Shift and a menu's letter opens that menu (History is S,
   // Help is H) instead of running an extension's shortcut. desktop.spec.ts presses
-  // Clipwise's real keys.
+  // PageNest's real keys.
   const menuLetters = await firefox.menuBarAccessKeys();
   expect(menuLetters).toEqual(expect.arrayContaining(['F', 'S', 'H']));
   for (const { shortcut } of SHORTCUTS) expect(menuLetters).not.toContain(shortcut.slice(-1));
@@ -75,15 +75,15 @@ test('a stopped background wakes up for a shortcut and a menu item', async ({
   await firefox.pressShortcut(article, 'Alt+Shift+D');
   await expect
     .poll(() => extension.toolbarButton())
-    .toEqual({ badge: '✓', title: 'Clipwise: Page saved.' });
+    .toEqual({ badge: '✓', title: 'PageNest: Page saved.' });
   expect(await extension.isBackgroundRunning()).toBe(true);
 
   await firefox.stopBackground();
   await selectText(article, '#quote');
-  await firefox.chooseContextMenuItem(article, '#quote', 'Save selection to Clipwise');
+  await firefox.chooseContextMenuItem(article, '#quote', 'Save selection to PageNest');
   await expect
     .poll(() => extension.toolbarButton())
-    .toEqual({ badge: '✓', title: 'Clipwise: Highlight saved.' });
+    .toEqual({ badge: '✓', title: 'PageNest: Highlight saved.' });
 
   const library = await extension.openPage('library.html');
   await expect
@@ -98,7 +98,7 @@ test('an update keeps the library, the menu items, and the shortcuts', async ({
   site,
 }, testInfo) => {
   // Installs a copy, so the test can raise its version as an update would.
-  const folder = testInfo.outputPath('clipwise');
+  const folder = testInfo.outputPath('pagenest');
   cpSync(extensionDir, folder, { recursive: true });
   const { extension } = await launchExtension({ extensionDir: folder });
   const library = await extension.openPage('library.html');
@@ -118,7 +118,7 @@ test('an update keeps the library, the menu items, and the shortcuts', async ({
   const { firefox } = extension;
   if (firefox) {
     const article = await extension.openWebPage(site.url('/article.html'));
-    expect(await firefox.contextMenuItems(article, '#second')).toEqual(['Save page to Clipwise']);
+    expect(await firefox.contextMenuItems(article, '#second')).toEqual(['Save page to PageNest']);
   } else {
     // Chrome's menus cannot be opened from tests, but updating an item that does not
     // exist fails there.
@@ -137,7 +137,7 @@ test('an update from a build with the earlier shortcuts assigns the current ones
   // Builds before these tests used Alt+Shift+R (which Chrome 153 keeps for itself), S,
   // and H. A browser keeps a shortcut the user chose, but should move one the user
   // never changed to the new suggestion.
-  const folder = testInfo.outputPath('clipwise');
+  const folder = testInfo.outputPath('pagenest');
   cpSync(extensionDir, folder, { recursive: true });
   const manifestPath = join(folder, 'manifest.json');
   const current = readFileSync(manifestPath, 'utf8');
@@ -163,8 +163,8 @@ test('an update from a build with the earlier shortcuts assigns the current ones
   await extension.reload();
 
   const updated = await extension.openPage('library.html');
-  // Chrome 120 moves the save shortcuts but keeps the earlier key for opening Clipwise;
-  // Chrome 153 and Firefox move all three. Clipwise was never published with the earlier
+  // Chrome 120 moves the save shortcuts but keeps the earlier key for opening PageNest;
+  // Chrome 153 and Firefox move all three. PageNest was never published with the earlier
   // keys, so only test installs are affected.
   const chrome120 = /Chrome\/120\./.test(await updated.evaluate(() => navigator.userAgent));
   expect(await shortcuts(updated)).toEqual(

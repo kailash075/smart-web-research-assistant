@@ -62,7 +62,7 @@ export const test = base.extend<Fixtures>({
         const { executablePath } = launchOptions;
         if (desktop) {
           // Kept with the profile, where snap Firefox can read the display's cookie.
-          const displayDir = join(profileDir, 'clipwise-display');
+          const displayDir = join(profileDir, 'pagenest-display');
           mkdirSync(displayDir, { recursive: true });
           display ??= await startVirtualDisplay(displayDir);
         }
@@ -124,11 +124,11 @@ function requireGeckoId(manifest: BuiltManifest): string {
 // Snap Firefox cannot read /tmp, so its throwaway profiles live in the snap's own folder.
 function createProfileDir(browserName: string): string {
   if (browserName === 'firefox' && existsSync('/snap/bin/firefox')) {
-    const dir = join(homedir(), 'snap/firefox/common/clipwise-e2e-profiles', randomUUID());
+    const dir = join(homedir(), 'snap/firefox/common/pagenest-e2e-profiles', randomUUID());
     mkdirSync(dir, { recursive: true });
     return dir;
   }
-  return mkdtempSync(join(tmpdir(), `clipwise-e2e-${browserName}-`));
+  return mkdtempSync(join(tmpdir(), `pagenest-e2e-${browserName}-`));
 }
 
 // Browser helper processes can still write to the profile for a moment after the

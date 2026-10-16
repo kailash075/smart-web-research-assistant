@@ -66,10 +66,10 @@ export function unavailableInput(where: string): UserInput {
 export type FirefoxControls = {
   /**
    * Opens a page WebDriver cannot navigate to (such as `about:addons`) in a new tab,
-   * then clicks Clipwise's toolbar button there.
+   * then clicks PageNest's toolbar button there.
    */
   openPopupOnBrowserPage: (url: string) => Promise<ExtensionPage>;
-  /** Presses one of Clipwise's keyboard shortcuts (for example "Alt+Shift+D") on `page`. */
+  /** Presses one of PageNest's keyboard shortcuts (for example "Alt+Shift+D") on `page`. */
   pressShortcut: (page: WebPage, shortcut: string) => Promise<void>;
   /**
    * The letters of the menu bar's menus (in English, F for File, S for History, …).
@@ -83,9 +83,9 @@ export type FirefoxControls = {
   addonsManagerNames: () => Promise<string[]>;
   /** Stops the background page, as Firefox does once it has been idle for a while. */
   stopBackground: () => Promise<void>;
-  /** Right-clicks `selector` and returns the labels of Clipwise's menu items, then closes the menu. */
+  /** Right-clicks `selector` and returns the labels of PageNest's menu items, then closes the menu. */
   contextMenuItems: (page: WebPage, selector: string) => Promise<string[]>;
-  /** Right-clicks `selector` and chooses Clipwise's menu item with this label. */
+  /** Right-clicks `selector` and chooses PageNest's menu item with this label. */
   chooseContextMenuItem: (page: WebPage, selector: string, label: string) => Promise<void>;
 };
 
@@ -103,18 +103,18 @@ export type DesktopControls = {
   clickAt: (point: ScreenPoint, button?: 'left' | 'right') => Promise<void>;
   /** Saves the whole screen, native menus included, as a PNG. */
   screenshot: (path: string) => Promise<void>;
-  /** Where Clipwise's 16-pixel icon appears on screen (inside `box`, if given). */
+  /** Where PageNest's 16-pixel icon appears on screen (inside `box`, if given). */
   findIcon: (box?: ScreenBox) => Promise<ScreenPoint[]>;
   /**
    * Runs `open` (a right-click, or the Shift+F10 menu key) and waits for the browser's
-   * native context menu. Returns where the menu is and where Clipwise's items are in it,
-   * found by Clipwise's icon, which both browsers show next to an extension's menu items.
+   * native context menu. Returns where the menu is and where PageNest's items are in it,
+   * found by PageNest's icon, which both browsers show next to an extension's menu items.
    * Press Escape to close the menu, or click an item.
    */
   openContextMenu: (open: () => Promise<void>) => Promise<ContextMenu>;
 };
 
-export type ContextMenu = { box: ScreenBox; clipwiseItems: ScreenPoint[] };
+export type ContextMenu = { box: ScreenBox; pageNestItems: ScreenPoint[] };
 
 export type InstalledExtension = {
   isBackgroundRunning: () => Promise<boolean>;
@@ -128,7 +128,7 @@ export type InstalledExtension = {
   /** Opens a web page in a tab and makes it the active tab. */
   openWebPage: (url: string) => Promise<WebPage>;
   /**
-   * Clicks Clipwise's toolbar button for the tab showing `page`, like a user would:
+   * Clicks PageNest's toolbar button for the tab showing `page`, like a user would:
    * the browser grants `activeTab` for that tab and opens the real popup.
    */
   openPopup: (page: WebPage) => Promise<ExtensionPage>;

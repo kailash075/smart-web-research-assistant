@@ -58,7 +58,7 @@ export const LIBRARY = {
 export const seed = (page: ExtensionPage, items: Record<string, unknown>) =>
   page.evaluate((items) => chrome.storage.local.set(items), items);
 
-/** Deletes everything Clipwise stored, as a fresh install would have. */
+/** Deletes everything PageNest stored, as a fresh install would have. */
 export const clearStorage = (page: ExtensionPage) =>
   page.evaluate(() => chrome.storage.local.clear());
 

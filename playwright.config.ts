@@ -3,9 +3,9 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { defineConfig, type Project } from '@playwright/test';
 
-// The oldest versions Clipwise supports (minimum_chrome_version and strict_min_version in
+// The oldest versions PageNest supports (minimum_chrome_version and strict_min_version in
 // wxt.config.ts). `scripts/get-test-tools.sh` downloads them here.
-const OLDEST = join(homedir(), '.cache/clipwise-e2e-browsers');
+const OLDEST = join(homedir(), '.cache/pagenest-e2e-browsers');
 const CHROME_120 = join(OLDEST, 'chrome-120/chrome-linux64/chrome');
 const FIREFOX_140 = join(OLDEST, 'firefox-140/firefox/firefox');
 

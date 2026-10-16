@@ -1,8 +1,8 @@
 import { defineConfig } from 'wxt';
 
-const FIREFOX_ADDON_ID = 'clipwise@kailash075.github.io';
+const FIREFOX_ADDON_ID = 'pagenest@kailash075.github.io';
 
-// Clipwise's own pages (popup, library, background) may load only the extension's files,
+// PageNest's own pages (popup, library, background) may load only the extension's files,
 // and may not send network requests at all (`connect-src 'none'`), so the browser itself
 // enforces that saved research never leaves the device. Only for production builds:
 // dev mode loads code from WXT's local dev server.
@@ -24,20 +24,20 @@ export default defineConfig({
   // WXT defaults Firefox to MV2; we target MV3 in both browsers.
   manifestVersion: 3,
   manifest: ({ browser, command }) => ({
-    name: 'Clipwise',
+    name: 'PageNest',
     description: 'Save, organize, and search what you find on the web. Local-first and private.',
     // Each permission is explained in the README. None shows an install warning.
     // storage: keep research in browser.storage.local on this device.
     // activeTab: read the URL and title of the tab the user acts on, only at that moment.
     // scripting: read the selected text in that tab (allowed by activeTab).
-    // contextMenus: the "Save page/selection to Clipwise" right-click items.
+    // contextMenus: the "Save page/selection to PageNest" right-click items.
     permissions: ['storage', 'activeTab', 'scripting', 'contextMenus'],
     ...(command === 'build' && {
       content_security_policy: { extension_pages: EXTENSION_PAGES_CSP },
     }),
     // Users can change these in chrome://extensions/shortcuts or Firefox's
     // "Manage Extension Shortcuts". Using one also grants activeTab. The letters avoid
-    // keys that would never reach Clipwise:
+    // keys that would never reach PageNest:
     // - Chrome leaves a shortcut unassigned when it uses the keys itself. Chrome 153 on
     //   Linux takes Alt+Shift+A, C, I, N, P, R, W, X, and Z.
     // - In Firefox, Alt+Shift and a menu bar letter opens that menu. In English those
@@ -48,7 +48,7 @@ export default defineConfig({
     commands: {
       _execute_action: {
         suggested_key: { default: 'Alt+Shift+M' },
-        description: 'Open Clipwise',
+        description: 'Open PageNest',
       },
       'save-page': {
         suggested_key: { default: 'Alt+Shift+D' },
@@ -68,14 +68,14 @@ export default defineConfig({
               // Declares to Mozilla that the extension collects no user data.
               data_collection_permissions: { required: ['none'] },
             },
-            // No `gecko_android` key: it would list Clipwise for Firefox for Android on AMO,
+            // No `gecko_android` key: it would list PageNest for Firefox for Android on AMO,
             // where it is untested and the contextMenus and commands APIs do not exist.
           },
         }
       : { minimum_chrome_version: '120' }),
   }),
   vite: () => ({
-    // Browsers Clipwise supports preload modules themselves. Vite's polyfill for older
+    // Browsers PageNest supports preload modules themselves. Vite's polyfill for older
     // ones is the only `fetch()` call in the bundle, which reviewers would ask about.
     build: { modulePreload: { polyfill: false } },
   }),

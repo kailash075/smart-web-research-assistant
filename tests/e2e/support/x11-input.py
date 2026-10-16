@@ -189,7 +189,7 @@ def screenshot(display, path):
 
 
 def read_rgba_png(path):
-    """Decodes an 8-bit RGBA, non-interlaced PNG (such as Clipwise's icons)."""
+    """Decodes an 8-bit RGBA, non-interlaced PNG (such as PageNest's icons)."""
     data = open(path, "rb").read()
     position, chunks = 8, {}
     while position < len(data):

@@ -40,7 +40,7 @@ describe('pageFromTab', () => {
   it('explains that browser pages are off limits when the address is hidden', () => {
     const result = pageFromTab(articleTab({ url: undefined, title: undefined }));
     expect(result).toMatchObject({ ok: false, error: { kind: 'unsupported_page' } });
-    if (!result.ok) expect(result.error.message).toContain("Clipwise can't save this page");
+    if (!result.ok) expect(result.error.message).toContain("PageNest can't save this page");
   });
 
   it('saves the article behind a Firefox Reader View page', () => {

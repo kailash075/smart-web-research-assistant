@@ -20,12 +20,12 @@ export async function showSaveFeedback(
   result: Result<SaveOutcome, AppError>,
 ): Promise<void> {
   const feedback = describe(result);
-  if (!result.ok) console.warn(`[Clipwise] ${feedback.message}`);
+  if (!result.ok) console.warn(`[PageNest] ${feedback.message}`);
   try {
     await Promise.all([
       browser.action.setBadgeBackgroundColor({ tabId, color: feedback.color }),
       browser.action.setBadgeText({ tabId, text: feedback.badge }),
-      browser.action.setTitle({ tabId, title: `Clipwise: ${feedback.message}` }),
+      browser.action.setTitle({ tabId, title: `PageNest: ${feedback.message}` }),
     ]);
   } catch {
     return; // The tab was closed in the meantime.
