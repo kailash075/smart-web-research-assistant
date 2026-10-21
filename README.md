@@ -334,7 +334,7 @@ Planned as future premium features, and not part of this version: AI summaries, 
 
 ## License
 
-No license has been chosen yet, so all rights are reserved by default. Choose one before publishing (see the [release checklist](docs/release-checklist.md)).
+All rights reserved (see [LICENSE](LICENSE)). The source code is public so that anyone can read it and check what PageNest does, but it may not be copied or reused without permission. Questions: kailashkumartech@gmail.com.
 
 ## Inspecting errors
 

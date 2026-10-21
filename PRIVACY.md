@@ -1,6 +1,6 @@
 # PageNest privacy policy
 
-Last updated: 15 October 2026
+Last updated: 20 October 2026
 
 PageNest is a browser extension for saving web pages and highlights. Everything you save stays in your browser, on your device. PageNest has no servers and no accounts, it shows no ads, and it never sends your data anywhere.
 
@@ -59,4 +59,4 @@ Changes are published in this file, with a new "Last updated" date.
 
 ## Contact
 
-TODO(release): add a support email address or website for privacy questions.
+Questions about privacy or about PageNest: kailashkumartech@gmail.com.

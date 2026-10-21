@@ -3,6 +3,7 @@
   "description": "Save, organize, and search what you find on the web. Local-first and private.",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "packageManager": "pnpm@11.20.0",
   "engines": {

@@ -59,7 +59,7 @@ The name and short description come from the manifest (`wxt.config.ts`).
 
 - **Category:** the dashboard's productivity category in the Chrome Web Store, and the closest categories in Firefox Add-ons (up to two, for example Bookmarks). Pick from the lists the dashboards offer.
 - **Language:** English.
-- **Support:** the contact chosen in the release checklist (email or website). Optional in both stores, but give one.
+- **Support:** kailashkumartech@gmail.com. Optional in both stores, but give one. Homepage: <https://github.com/kailash075/smart-web-research-assistant>.
 
 ## Chrome Web Store
 
@@ -109,7 +109,7 @@ Leave the other categories unticked: PageNest handles no personally identifiable
 
 Tick all three certifications: PageNest does not sell user data, does not use or transfer it for purposes unrelated to its single purpose, and does not use it for creditworthiness or lending.
 
-**Privacy policy URL:** required, even though nothing leaves the device. Use the public URL of `PRIVACY.md` (see the release checklist); a policy only in the description is a reason for rejection. `PRIVACY.md` includes the Limited Use statement the store asks for.
+**Privacy policy URL:** required, even though nothing leaves the device. Use <https://github.com/kailash075/smart-web-research-assistant/blob/master/PRIVACY.md> (the repository must be public); a policy only in the description is a reason for rejection. `PRIVACY.md` includes the Limited Use statement the store asks for.
 
 ### Updates
 
@@ -129,7 +129,7 @@ Docs: [submitting](https://extensionworkshop.com/documentation/publish/submittin
 2. Choose **On this site** (listed: public on AMO, with automatic updates). **On your own** gives a signed file to host yourself instead; it is still checked by Mozilla.
 3. Upload `pagenest-<version>-firefox.zip`. Choose Firefox (desktop) only: PageNest does not support Firefox for Android.
 4. When asked whether the add-on uses a code generator, minifier, or bundler: **Yes**. Upload `pagenest-<version>-sources.zip`.
-5. Fill in the listing: name, summary, description, up to two categories, support contact, screenshots, and the **license** (required for listed add-ons; the one chosen in the release checklist).
+5. Fill in the listing: name, summary, description, up to two categories, support contact, screenshots, and the **license**: **All Rights Reserved** (required for listed add-ons; it matches `LICENSE`).
 6. **Privacy policy:** not required, because PageNest transmits no data and its manifest declares `data_collection_permissions: none` (Firefox shows "no data collected" when installing). Adding the text of `PRIVACY.md` is still allowed and helps users.
 7. Paste the reviewer notes below into **Notes to Reviewer**, and submit.
 
