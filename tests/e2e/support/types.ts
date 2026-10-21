@@ -173,6 +173,8 @@ export type LaunchOptions = {
   colorScheme: ColorScheme | undefined;
   /** Shows the browser window on this display instead of running headless. */
   display: VirtualDisplay | undefined;
+  /** More command-line switches for Chrome. Firefox ignores them. */
+  chromeArgs: string[] | undefined;
 };
 
 /** Source text that calls `fn` with `arg` (sent through JSON). */

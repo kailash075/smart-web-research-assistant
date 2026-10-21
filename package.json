@@ -17,6 +17,7 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "zip:verify": "bash scripts/verify-sources-zip.sh",
+    "store:images": "pnpm build && playwright test --project store-images",
     "postinstall": "wxt prepare",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

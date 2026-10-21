@@ -29,6 +29,8 @@ type Fixtures = {
      * input. Relaunches within the test reuse the same display.
      */
     desktop?: boolean;
+    /** More command-line switches for Chrome. Firefox ignores them. */
+    chromeArgs?: string[];
   }) => Promise<LaunchedExtension>;
   /** The extension in a fresh browser profile. */
   extension: InstalledExtension;
@@ -58,37 +60,40 @@ export const test = base.extend<Fixtures>({
     const open = new Set<LaunchedExtension>();
     let display: VirtualDisplay | undefined;
     try {
-      await use(async ({ extensionDir: folder = extensionDir, colorScheme, desktop } = {}) => {
-        const { executablePath } = launchOptions;
-        if (desktop) {
-          // Kept with the profile, where snap Firefox can read the display's cookie.
-          const displayDir = join(profileDir, 'pagenest-display');
-          mkdirSync(displayDir, { recursive: true });
-          display ??= await startVirtualDisplay(displayDir);
-        }
-        const options = {
-          extensionDir: folder,
-          profileDir,
-          channel,
-          executablePath,
-          headless,
-          colorScheme,
-          display: desktop ? display : undefined,
-        };
-        const launched =
-          browserName === 'firefox'
-            ? await launchFirefox({ ...options, addonId: requireGeckoId(manifest) })
-            : await launchChrome(options);
-        const tracked: LaunchedExtension = {
-          extension: launched.extension,
-          close: async () => {
-            open.delete(tracked);
-            await launched.close();
-          },
-        };
-        open.add(tracked);
-        return tracked;
-      });
+      await use(
+        async ({ extensionDir: folder = extensionDir, colorScheme, desktop, chromeArgs } = {}) => {
+          const { executablePath } = launchOptions;
+          if (desktop) {
+            // Kept with the profile, where snap Firefox can read the display's cookie.
+            const displayDir = join(profileDir, 'pagenest-display');
+            mkdirSync(displayDir, { recursive: true });
+            display ??= await startVirtualDisplay(displayDir);
+          }
+          const options = {
+            extensionDir: folder,
+            profileDir,
+            channel,
+            executablePath,
+            headless,
+            colorScheme,
+            display: desktop ? display : undefined,
+            chromeArgs,
+          };
+          const launched =
+            browserName === 'firefox'
+              ? await launchFirefox({ ...options, addonId: requireGeckoId(manifest) })
+              : await launchChrome(options);
+          const tracked: LaunchedExtension = {
+            extension: launched.extension,
+            close: async () => {
+              open.delete(tracked);
+              await launched.close();
+            },
+          };
+          open.add(tracked);
+          return tracked;
+        },
+      );
     } finally {
       // Close browsers before their display and the profile they are using.
       for (const launched of [...open]) await launched.close();

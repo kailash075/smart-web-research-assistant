@@ -38,6 +38,7 @@ export async function launchChrome({
   headless,
   colorScheme,
   display,
+  chromeArgs = [],
 }: LaunchOptions): Promise<LaunchedExtension> {
   const loadWithFlag = executablePath !== undefined;
   const hidden = headless && !display;
@@ -64,6 +65,7 @@ export async function launchChrome({
             `--window-size=${String(display.width)},${String(display.height)}`,
           ]
         : []),
+      ...chromeArgs,
     ],
     // On a display, pages get the window's real size, so screen positions match.
     ...(display ? { env: display.env, viewport: null } : {}),

@@ -16,7 +16,7 @@ Both extension zips have `manifest.json` at the top level, as the stores require
 
 ## Images to prepare
 
-Not part of the repository; make them for the first submission:
+`pnpm store:images` makes them in `.output/store-images/` (not part of the repository). It captures PageNest's real popup and library in Chrome, with an invented library and article, and places them in simple scenes with a caption (`tests/store-images/`). Run it again after the popup or library changes, and look over every image before uploading.
 
 | Image            | Size               | Chrome Web Store   | Firefox Add-ons       |
 | ---------------- | ------------------ | ------------------ | --------------------- |
@@ -25,7 +25,17 @@ Not part of the repository; make them for the first submission:
 | Small promo tile | 440 × 280          | Required           | Not used              |
 | Marquee promo    | 1400 × 560         | Optional           | Not used              |
 
-Good screenshots: the popup over a web page, right after saving; the library with a few items, a search, and a tag filter; the right-click menu on selected text; the library in the dark colour scheme. The screenshots the tests save in `test-results/` show the same screens and are a starting point, but they contain test data and test browser windows, so take the listing images in a normal browser window.
+| File in `.output/store-images/`   | Shows                                                        | Upload to                   |
+| --------------------------------- | ------------------------------------------------------------ | --------------------------- |
+| `screenshot-1-save-page.png`      | The popup over an article, with a note and tags typed in     | Both stores                 |
+| `screenshot-2-save-selection.png` | Selected text and the "Save selection to PageNest" menu item | Both stores                 |
+| `screenshot-3-library.png`        | The library with pages, highlights, notes, and tags          | Both stores                 |
+| `screenshot-4-search.png`         | A search in the library, in the dark colour scheme           | Both stores                 |
+| `screenshot-5-private.png`        | What PageNest does with your data                            | Both stores                 |
+| `promo-small-440x280.png`         | Name, icon, and tagline                                      | Chrome Web Store (required) |
+| `promo-marquee-1400x560.png`      | Name, tagline, popup, and library                            | Chrome Web Store (optional) |
+
+The browser window and the right-click menu in the screenshots are drawn without any browser's branding, so the same images suit both stores. The popup image leaves out its version and build lines, which are there for support requests.
 
 ## Listing text
 

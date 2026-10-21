@@ -49,5 +49,11 @@ export default defineConfig({
     { name: 'firefox', use: { browserName: 'firefox', channel: 'moz-firefox' } },
     // Run with `pnpm test:e2e:oldest`.
     ...oldestBrowsers,
+    // Not a test: makes the store listing images. Run with `pnpm store:images`.
+    {
+      name: 'store-images',
+      testDir: 'tests/store-images',
+      use: { browserName: 'chromium', channel: 'chrome' },
+    },
   ],
 });

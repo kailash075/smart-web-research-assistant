@@ -147,6 +147,7 @@ pnpm install
 | `pnpm zip`             | Store-ready zip for Chrome                                                  |
 | `pnpm zip:firefox`     | Store-ready zip for Firefox, plus the sources zip reviewers rebuild it from |
 | `pnpm zip:verify`      | Rebuilds from the sources zip and checks it matches `.output/firefox-mv3`   |
+| `pnpm store:images`    | Makes the store listing images in `.output/store-images/`                   |
 | `pnpm typecheck`       | TypeScript check                                                            |
 | `pnpm lint`            | ESLint                                                                      |
 | `pnpm lint:firefox`    | Mozilla's add-on linter on the Firefox production build                     |
