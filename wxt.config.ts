@@ -91,6 +91,7 @@ export default defineConfig({
       'wxt.config.ts',
       'README.md',
       'PRIVACY.md',
+      'LICENSE',
     ],
   },
 });
