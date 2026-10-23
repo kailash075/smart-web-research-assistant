@@ -8,13 +8,13 @@ Commands run from the repository root on Linux x86-64 (see the [README](../READM
 
 These only need deciding once, before the first submission:
 
-- [x] **Name.** PageNest (chosen on 15 October 2026). It replaces the working name "Recall", which Microsoft uses for a Windows feature, and then "Clipwise", which four Chrome Web Store extensions already used. On 15 October 2026 no extension in the Chrome Web Store or Firefox Add-ons had "PageNest" in its name. The domain pagenest.com is already registered, and no trademark database was checked. Before the first submission, search both stores and a trademark database for "PageNest": both stores forbid names that infringe a trademark or suggest another company's endorsement, and can remove a listing after a trademark complaint. Firefox Add-ons allows names of at most 45 characters.
+- [x] **Name.** PageNest (chosen on 15 October 2026). It replaces the working name "Recall", which Microsoft uses for a Windows feature, and then "Clipwise", which four Chrome Web Store extensions already used. On 15 October 2026 no extension in the Chrome Web Store or Firefox Add-ons had "PageNest" in its name. The domain pagenest.com is already registered. The owner searched a trademark database for "PageNest" before the first submission (done by 23 October 2026). Both stores forbid names that infringe a trademark or suggest another company's endorsement, and can remove a listing after a trademark complaint. Firefox Add-ons allows names of at most 45 characters.
 - [x] **License.** All rights reserved (`LICENSE`), chosen on 20 October 2026. Firefox Add-ons requires a license for listed add-ons: choose "All Rights Reserved" on the listing.
 - [x] **Contact.** kailashkumartech@gmail.com, in `PRIVACY.md`, `LICENSE`, the README, and both store listings.
 - [x] **Privacy policy URL.** The Chrome Web Store requires one, even though PageNest keeps everything on the device. The repository was made public on 21 October 2026, and the policy is at <https://github.com/kailash075/smart-web-research-assistant/blob/master/PRIVACY.md>.
 - [ ] **Store accounts.** Chrome Web Store: a Google account with 2-Step Verification, a one-time US$5 registration fee (needs the owner's approval), and a trader or non-trader declaration. Firefox Add-ons: a Mozilla account with two-factor authentication, no fee. Details in [publishing.md](publishing.md).
 - [x] **Listing images.** `pnpm store:images` makes the five 1280 × 800 screenshots and the Chrome Web Store's 440 × 280 promo tile and 1400 × 560 marquee ([publishing.md](publishing.md#images-to-prepare)). Approved by the owner on 21 October 2026.
-- [ ] **Firefox add-on ID.** `pagenest@kailash075.github.io` in `wxt.config.ts` becomes permanent once the add-on is submitted. Change it now if it should not contain that name.
+- [x] **Firefox add-on ID.** `pagenest@kailash075.github.io` in `wxt.config.ts`, kept by the owner on 23 October 2026. It becomes permanent once the add-on is submitted.
 
 ## 2. Prepare the code
 
